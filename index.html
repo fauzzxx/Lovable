@@ -1,0 +1,698 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>AI Website Builder</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<style>
+  :root{
+    --bg:#0b0d12; --panel:#12151d; --panel2:#171b26; --card:#1b2030;
+    --ink:#e8eaf2; --muted:#8b92a7; --line:#252b3b; --line2:#303749;
+    --accent:#7c9dff; --accent2:#a78bfa; --ok:#4ade80; --warn:#fbbf24; --bad:#f87171;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    background:var(--bg); color:var(--ink); height:100vh; overflow:hidden;
+  }
+  button{font-family:inherit;cursor:pointer}
+  /* ---------- top bar ---------- */
+  .topbar{
+    height:54px; display:flex; align-items:center; gap:14px; padding:0 18px;
+    border-bottom:1px solid var(--line); background:var(--panel);
+  }
+  .logo{font-weight:700;font-size:16px;letter-spacing:.2px;display:flex;align-items:center;gap:9px}
+  .logo .dot{width:11px;height:11px;border-radius:50%;
+    background:linear-gradient(135deg,var(--accent),var(--accent2));box-shadow:0 0 14px var(--accent)}
+  .spacer{flex:1}
+  select,.btn{
+    background:var(--card);color:var(--ink);border:1px solid var(--line2);
+    border-radius:9px;padding:8px 12px;font-size:13px;
+  }
+  select{max-width:260px}
+  .btn{transition:.15s}
+  .btn:hover{border-color:var(--accent)}
+  .btn.primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#0b1020;border:0;font-weight:600}
+  .btn.primary:hover{filter:brightness(1.08)}
+  .btn.ghost{background:transparent}
+  .btn.danger{background:#3a1f23;color:var(--bad);border-color:#52303a}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .btn.icon{padding:8px 10px}
+  /* ---------- layout ---------- */
+  .main{display:grid;grid-template-columns:minmax(330px,420px) 1fr;height:calc(100vh - 54px)}
+  @media(max-width:820px){.main{grid-template-columns:1fr}}
+  /* ---------- chat pane ---------- */
+  .chat{display:flex;flex-direction:column;border-right:1px solid var(--line);background:var(--panel)}
+  .chat-scroll{flex:1;overflow-y:auto;padding:18px}
+  .welcome{padding:6px 2px}
+  .welcome h2{margin:6px 0 6px;font-size:19px}
+  .welcome p{color:var(--muted);font-size:13.5px;line-height:1.5;margin:0 0 16px}
+  .examples{display:flex;flex-direction:column;gap:8px;margin-top:6px}
+  .example{
+    text-align:left;background:var(--card);border:1px solid var(--line);border-radius:10px;
+    padding:11px 13px;color:var(--ink);font-size:13px;line-height:1.4;transition:.15s
+  }
+  .example:hover{border-color:var(--accent);transform:translateY(-1px)}
+  .example b{color:var(--accent)}
+  .msg{margin-bottom:14px;display:flex;flex-direction:column;gap:5px}
+  .msg .who{font-size:11px;text-transform:uppercase;letter-spacing:.7px;color:var(--muted)}
+  .bubble{padding:11px 13px;border-radius:12px;font-size:13.5px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+  .msg.user .bubble{background:#1e2746;align-self:flex-start}
+  .msg.ai .bubble{background:var(--card);border:1px solid var(--line)}
+  .msg .thumb{max-width:160px;border-radius:8px;border:1px solid var(--line2);margin-top:4px}
+  .notes{background:#15241c;border:1px solid #1f4733;color:#bdf0d0;font-size:12.5px;
+    padding:9px 12px;border-radius:9px;line-height:1.45}
+  .err-bubble{background:#2a1416;border:1px solid #52303a;color:#ffb4b4}
+  /* composer */
+  .composer{border-top:1px solid var(--line);padding:12px;background:var(--panel2)}
+  .composer .imgchip{display:none;align-items:center;gap:8px;margin-bottom:8px;background:var(--card);
+    border:1px solid var(--line2);border-radius:8px;padding:6px 8px;font-size:12px;color:var(--muted)}
+  .composer .imgchip img{height:34px;border-radius:5px}
+  .composer .imgchip button{margin-left:auto;background:transparent;border:0;color:var(--muted);font-size:15px}
+  .composer textarea{
+    width:100%;resize:none;background:var(--card);border:1px solid var(--line2);border-radius:10px;
+    color:var(--ink);padding:11px 12px;font-size:14px;min-height:64px;outline:none;font-family:inherit
+  }
+  .composer textarea:focus{border-color:var(--accent)}
+  .composer-row{display:flex;gap:8px;margin-top:9px;align-items:center}
+  .composer-row .hint{color:var(--muted);font-size:11.5px;flex:1}
+  /* ---------- work pane ---------- */
+  .work{display:flex;flex-direction:column;background:var(--bg);min-width:0}
+  .tabs{display:flex;gap:4px;padding:10px 14px 0;border-bottom:1px solid var(--line);background:var(--panel)}
+  .tab{background:transparent;border:0;border-bottom:2px solid transparent;color:var(--muted);
+    padding:9px 14px;font-size:13px;border-radius:6px 6px 0 0}
+  .tab.active{color:var(--ink);border-bottom-color:var(--accent)}
+  .tab:hover{color:var(--ink)}
+  .tab .badge{background:var(--card);border:1px solid var(--line2);border-radius:20px;padding:0 7px;font-size:10.5px;margin-left:6px}
+  .panel-body{flex:1;overflow:hidden;position:relative}
+  .view{position:absolute;inset:0;display:none;flex-direction:column}
+  .view.active{display:flex}
+  /* preview */
+  .preview-bar{display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid var(--line);background:var(--panel2)}
+  .preview-bar .url{flex:1;font-family:ui-monospace,monospace;font-size:12px;color:var(--muted);
+    background:var(--card);border:1px solid var(--line);border-radius:7px;padding:6px 10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .statuslamp{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)}
+  .lamp{width:9px;height:9px;border-radius:50%;background:#555}
+  .lamp.running{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+  .lamp.installing,.lamp.starting{background:var(--warn);box-shadow:0 0 8px var(--warn);animation:pulse 1.2s infinite}
+  .lamp.error,.lamp.exited{background:var(--bad);box-shadow:0 0 8px var(--bad)}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  iframe{flex:1;border:0;width:100%;height:100%;background:#fff}
+  .preview-empty{flex:1;display:flex;align-items:center;justify-content:center;color:var(--muted);text-align:center;padding:30px}
+  /* logs drawer */
+  .logs{height:0;overflow:hidden;transition:height .2s;background:#0a0c11;border-top:1px solid var(--line);
+    font-family:ui-monospace,monospace;font-size:11.5px;color:#9fb0c8;padding:0 12px}
+  .logs.open{height:160px;overflow-y:auto;padding:10px 12px}
+  .logs .line{white-space:pre-wrap;line-height:1.4}
+  /* code view */
+  .code-wrap{flex:1;display:grid;grid-template-columns:210px 1fr;overflow:hidden}
+  .filelist{border-right:1px solid var(--line);overflow-y:auto;background:var(--panel)}
+  .filelist .f{display:block;width:100%;text-align:left;background:transparent;border:0;color:var(--muted);
+    padding:9px 13px;font-size:12.5px;font-family:ui-monospace,monospace;border-left:2px solid transparent}
+  .filelist .f:hover{color:var(--ink);background:var(--panel2)}
+  .filelist .f.active{color:var(--ink);background:var(--panel2);border-left-color:var(--accent)}
+  .codebox{overflow:auto;background:#0c0e14}
+  .codebox pre{margin:0}
+  .codebox code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;line-height:1.55;display:block;padding:14px 16px}
+  /* versions */
+  .vlist{overflow-y:auto;padding:14px}
+  .vrow{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);
+    border-radius:10px;padding:11px 14px;margin-bottom:9px}
+  .vrow .vmeta{flex:1;min-width:0}
+  .vrow .vtag{display:inline-block;font-size:10.5px;text-transform:uppercase;letter-spacing:.6px;
+    padding:1px 8px;border-radius:20px;margin-right:8px}
+  .vtag.generate{background:#1c2d4a;color:var(--accent)}
+  .vtag.refine{background:#2c2148;color:var(--accent2)}
+  .vtag.rollback{background:#3a2f14;color:var(--warn)}
+  .vrow .vp{font-size:13px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .vrow .vt{font-size:11px;color:var(--muted);margin-top:3px}
+  /* keys */
+  .keys{overflow-y:auto;padding:18px;max-width:680px}
+  .keys h3{margin:0 0 4px;font-size:15px}
+  .keys p{color:var(--muted);font-size:13px;margin:0 0 16px;line-height:1.5}
+  .kvrow{display:flex;gap:8px;margin-bottom:8px}
+  .kvrow input{flex:1;background:var(--card);border:1px solid var(--line2);border-radius:8px;color:var(--ink);
+    padding:9px 11px;font-size:13px;font-family:ui-monospace,monospace;outline:none}
+  .kvrow input:focus{border-color:var(--accent)}
+  .kvrow .kdel{background:transparent;border:1px solid var(--line2);border-radius:8px;color:var(--muted);padding:0 12px}
+  /* modal */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:50}
+  .overlay.open{display:flex}
+  .modal{background:var(--panel);border:1px solid var(--line2);border-radius:14px;width:min(520px,92vw);padding:22px}
+  .modal h3{margin:0 0 14px;font-size:17px}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+  .field input{width:100%;background:var(--card);border:1px solid var(--line2);border-radius:9px;color:var(--ink);
+    padding:10px 12px;font-size:14px;outline:none}
+  .field input:focus{border-color:var(--accent)}
+  .field .sub{font-size:11.5px;color:var(--muted);margin-top:5px;line-height:1.4}
+  .field .sub a{color:var(--accent)}
+  .modal-actions{display:flex;gap:9px;justify-content:flex-end;margin-top:8px}
+  .row2{display:flex;gap:12px}.row2>.field{flex:1}
+  /* toast */
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#2a1416;border:1px solid #52303a;
+    color:#ffb4b4;padding:11px 16px;border-radius:10px;font-size:13px;z-index:80;max-width:560px;display:none;box-shadow:0 8px 30px rgba(0,0,0,.4)}
+  .toast.ok{background:#15241c;border-color:#1f4733;color:#bdf0d0}
+  .toast.show{display:block}
+  /* spinner */
+  .spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);
+    border-top-color:#fff;border-radius:50%;animation:rot .7s linear infinite;vertical-align:-2px}
+  @keyframes rot{to{transform:rotate(360deg)}}
+  .center-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--muted);gap:6px;text-align:center;padding:30px}
+  .kbd{font-family:ui-monospace,monospace;background:var(--card);border:1px solid var(--line2);border-radius:5px;padding:1px 6px;font-size:11px}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="logo"><span class="dot"></span> AI Website Builder</div>
+    <div class="spacer"></div>
+    <select id="projectSelect" title="Open a project">
+      <option value="">＋ New project</option>
+    </select>
+    <button class="btn ghost" id="downloadBtn" title="Download project as .zip" disabled>⤓ Export</button>
+    <button class="btn ghost icon" id="settingsBtn" title="Settings">⚙</button>
+  </div>
+
+  <div class="main">
+    <!-- ============ CHAT PANE ============ -->
+    <section class="chat">
+      <div class="chat-scroll" id="chatScroll">
+        <div class="welcome" id="welcome">
+          <h2>Describe a website. Get working code.</h2>
+          <p>Type what you want, optionally attach a screenshot or mockup, and the
+             builder generates a full app — frontend plus an optional Python (FastAPI)
+             backend. Then keep chatting to refine it.</p>
+          <div class="examples" id="examples">
+            <button class="example" data-p="A clean SaaS landing page for a note-taking app called Jotly, with a hero, 3 feature cards, pricing, and a footer. Purple accent on dark theme.">
+              <b>Landing page</b> — SaaS hero, features, pricing
+            </button>
+            <button class="example" data-p="A to-do list app with a FastAPI backend that stores tasks in SQLite. I can add, complete, and delete tasks, and they persist across reloads.">
+              <b>To-do app + backend</b> — FastAPI + SQLite persistence
+            </button>
+            <button class="example" data-p="An outbound voice-agent dashboard: a dark UI with a phone-number queue, a live call status panel with a transcript area and sentiment meters, and a recent-calls table. Include a FastAPI backend with /call, /call/status, /calls endpoints and a /live websocket.">
+              <b>Voice-agent dashboard</b> — queue, live panel, FastAPI API
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="composer">
+        <div class="imgchip" id="imgChip">
+          <img id="imgThumb" alt="" /><span id="imgName">image</span>
+          <button id="imgRemove" title="Remove image">✕</button>
+        </div>
+        <textarea id="promptInput" placeholder="Describe the website you want to build…  (Enter to send, Shift+Enter for newline)"></textarea>
+        <div class="composer-row">
+          <input type="file" id="imgInput" accept="image/*" hidden />
+          <button class="btn ghost icon" id="attachBtn" title="Attach reference image">🖼</button>
+          <span class="hint" id="composerHint">Set your Gemini key in ⚙ Settings to begin.</span>
+          <button class="btn primary" id="sendBtn">Generate</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ WORK PANE ============ -->
+    <section class="work">
+      <div class="tabs">
+        <button class="tab active" data-tab="preview">Preview</button>
+        <button class="tab" data-tab="code">Code <span class="badge" id="fileCount">0</span></button>
+        <button class="tab" data-tab="versions">Versions <span class="badge" id="verCount">0</span></button>
+        <button class="tab" data-tab="keys" id="keysTab" style="display:none">Backend keys</button>
+      </div>
+
+      <div class="panel-body">
+        <!-- preview -->
+        <div class="view active" data-view="preview">
+          <div class="preview-bar" id="previewBar" style="display:none">
+            <button class="btn primary" id="runBtn">▶ Run backend</button>
+            <button class="btn danger" id="stopBtn" style="display:none">■ Stop</button>
+            <span class="statuslamp"><span class="lamp" id="lamp"></span><span id="lampText">static preview</span></span>
+            <span class="url" id="previewUrl">—</span>
+            <button class="btn ghost icon" id="refreshBtn" title="Reload preview">↻</button>
+            <button class="btn ghost icon" id="openBtn" title="Open in new tab">↗</button>
+            <button class="btn ghost icon" id="logsBtn" title="Toggle logs">▤</button>
+          </div>
+          <div class="preview-empty" id="previewEmpty">
+            <div>Your live preview will appear here after you generate a site.</div>
+          </div>
+          <iframe id="previewFrame" style="display:none"></iframe>
+          <div class="logs" id="logsBox"></div>
+        </div>
+
+        <!-- code -->
+        <div class="view" data-view="code">
+          <div class="code-wrap" id="codeWrap" style="display:none">
+            <div class="filelist" id="fileList"></div>
+            <div class="codebox"><pre><code id="codeContent"></code></pre></div>
+          </div>
+          <div class="center-empty" id="codeEmpty">No code yet — generate a site first.</div>
+        </div>
+
+        <!-- versions -->
+        <div class="view" data-view="versions">
+          <div class="vlist" id="versionList"></div>
+        </div>
+
+        <!-- keys -->
+        <div class="view" data-view="keys">
+          <div class="keys">
+            <h3>Backend API keys & environment variables</h3>
+            <p>This app's Python backend reads secrets from environment variables.
+               Add them here (e.g. <span class="kbd">OPENAI_API_KEY</span>,
+               <span class="kbd">TWILIO_SID</span>). They're saved to a local
+               <span class="kbd">.env</span> for this project and injected when you
+               run the backend. They never leave your machine.</p>
+            <div id="kvRows"></div>
+            <div style="display:flex;gap:8px;margin-top:6px">
+              <button class="btn ghost" id="addKvBtn">＋ Add variable</button>
+              <button class="btn primary" id="saveKvBtn">Save keys</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ============ SETTINGS MODAL ============ -->
+  <div class="overlay" id="settingsOverlay">
+    <div class="modal">
+      <h3>Settings</h3>
+      <div class="field">
+        <label>Gemini API key</label>
+        <input type="password" id="apiKeyInput" placeholder="Paste your key (leave blank to keep current)" />
+        <div class="sub">Get one free at
+          <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>.
+          <span id="keyStatus"></span></div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>Model</label>
+          <input type="text" id="modelInput" placeholder="gemini-2.5-flash" />
+          <div class="sub">If you get a “model not found” error, try
+            <span class="kbd">gemini-2.5-flash</span> or
+            <span class="kbd">gemini-2.5-flash-lite</span>.</div>
+        </div>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label>Temperature</label>
+          <input type="number" id="tempInput" step="0.1" min="0" max="2" />
+        </div>
+        <div class="field">
+          <label>Max output tokens</label>
+          <input type="number" id="maxTokInput" step="1024" min="1024" />
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn ghost" id="settingsCancel">Cancel</button>
+        <button class="btn primary" id="settingsSave">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const api = {
+  async get(u){ const r = await fetch(u); return r.json(); },
+  async post(u,b){ const r = await fetch(u,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b||{})}); return {ok:r.ok, status:r.status, data:await r.json().catch(()=>({}))}; },
+  async del(u){ const r = await fetch(u,{method:'DELETE'}); return r.json(); },
+};
+
+// ---------------- state ----------------
+let state = {
+  settings: null,
+  project: null,        // full project object
+  activeTab: 'preview',
+  activeFile: null,
+  image: null,          // data URL
+  pollTimer: null,
+  busy: false,
+};
+
+const EXT_LANG = {html:'xml',htm:'xml',js:'javascript',mjs:'javascript',py:'python',
+  css:'css',json:'json',md:'markdown',txt:'plaintext',sh:'bash',yml:'yaml',yaml:'yaml'};
+
+// ---------------- toast ----------------
+let toastTimer=null;
+function toast(msg, ok=false){
+  const t=$('toast'); t.textContent=msg; t.className='toast show'+(ok?' ok':'');
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.className='toast',ok?2600:5200);
+}
+
+// ---------------- init ----------------
+window.addEventListener('DOMContentLoaded', async ()=>{
+  bindEvents();
+  await loadSettings();
+  await loadProjects();
+  updateComposerHint();
+});
+
+function bindEvents(){
+  $('settingsBtn').onclick = openSettings;
+  $('settingsCancel').onclick = ()=> $('settingsOverlay').classList.remove('open');
+  $('settingsSave').onclick = saveSettings;
+  $('settingsOverlay').onclick = (e)=>{ if(e.target===$('settingsOverlay')) $('settingsOverlay').classList.remove('open'); };
+
+  document.querySelectorAll('.tab').forEach(t=> t.onclick=()=>switchTab(t.dataset.tab));
+  document.querySelectorAll('.example').forEach(b=> b.onclick=()=>{ $('promptInput').value=b.dataset.p; $('promptInput').focus(); });
+
+  $('sendBtn').onclick = send;
+  $('promptInput').addEventListener('keydown',(e)=>{ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); send(); }});
+
+  $('attachBtn').onclick = ()=> $('imgInput').click();
+  $('imgInput').onchange = onImagePicked;
+  $('imgRemove').onclick = clearImage;
+
+  $('projectSelect').onchange = onProjectSelect;
+  $('downloadBtn').onclick = ()=>{ if(state.project) window.open('/api/projects/'+state.project.id+'/download','_blank'); };
+
+  $('runBtn').onclick = runBackend;
+  $('stopBtn').onclick = stopBackend;
+  $('refreshBtn').onclick = ()=> reloadPreview();
+  $('openBtn').onclick = ()=>{ const u=currentPreviewUrl(); if(u) window.open(u,'_blank'); };
+  $('logsBtn').onclick = ()=> $('logsBox').classList.toggle('open');
+
+  $('addKvBtn').onclick = ()=> addKvRow('','');
+  $('saveKvBtn').onclick = saveKeys;
+}
+
+// ---------------- settings ----------------
+async function loadSettings(){
+  state.settings = await api.get('/api/settings');
+}
+function openSettings(){
+  const s=state.settings||{};
+  $('apiKeyInput').value='';
+  $('modelInput').value=s.model||'gemini-2.5-flash';
+  $('tempInput').value=s.temperature ?? 0.6;
+  $('maxTokInput').value=s.max_output_tokens ?? 32768;
+  $('keyStatus').textContent = s.has_key ? `A key is set (${s.key_hint}).` : 'No key set yet.';
+  $('settingsOverlay').classList.add('open');
+}
+async function saveSettings(){
+  const body={
+    gemini_api_key: $('apiKeyInput').value.trim(),
+    model: $('modelInput').value.trim(),
+    temperature: parseFloat($('tempInput').value),
+    max_output_tokens: parseInt($('maxTokInput').value,10),
+  };
+  const r= await api.post('/api/settings', body);
+  if(r.ok){ state.settings=r.data; $('settingsOverlay').classList.remove('open'); toast('Settings saved.',true); updateComposerHint(); }
+  else toast('Could not save settings.');
+}
+function updateComposerHint(){
+  const hasKey = state.settings && state.settings.has_key;
+  $('composerHint').innerHTML = hasKey
+    ? (state.project ? 'Describe a change to refine this app.' : 'Enter a description to generate your first site.')
+    : 'Set your Gemini key in ⚙ Settings to begin.';
+}
+
+// ---------------- projects ----------------
+async function loadProjects(){
+  const {projects} = await api.get('/api/projects');
+  const sel=$('projectSelect');
+  const cur=state.project?state.project.id:'';
+  sel.innerHTML='<option value="">＋ New project</option>';
+  for(const p of projects){
+    const o=document.createElement('option');
+    o.value=p.id; o.textContent=`${p.name}  (v${p.version_count})`;
+    sel.appendChild(o);
+  }
+  sel.value=cur;
+}
+async function onProjectSelect(){
+  const id=$('projectSelect').value;
+  stopPolling();
+  if(!id){ resetToNew(); return; }
+  const p= await api.get('/api/projects/'+id);
+  if(p.error){ toast(p.error); return; }
+  state.project=p;
+  renderAll(true);
+}
+function resetToNew(){
+  state.project=null; state.activeFile=null;
+  $('chatScroll').innerHTML=''; $('chatScroll').appendChild(buildWelcome());
+  $('welcome').style.display='block';
+  $('sendBtn').textContent='Generate';
+  $('downloadBtn').disabled=true;
+  $('keysTab').style.display='none';
+  $('previewBar').style.display='none';
+  $('previewFrame').style.display='none';
+  $('previewEmpty').style.display='flex';
+  $('codeWrap').style.display='none'; $('codeEmpty').style.display='flex';
+  $('fileCount').textContent='0'; $('verCount').textContent='0';
+  $('versionList').innerHTML='';
+  switchTab('preview'); updateComposerHint();
+}
+function buildWelcome(){
+  const tpl=$('welcome'); return tpl;
+}
+
+// ---------------- send (generate / refine) ----------------
+async function send(){
+  if(state.busy) return;
+  const prompt=$('promptInput').value.trim();
+  if(!prompt){ toast('Type a description first.'); return; }
+  if(!(state.settings&&state.settings.has_key)){ toast('Add your Gemini API key in Settings first.'); openSettings(); return; }
+
+  const isRefine = !!state.project;
+  pushMsg('user', prompt, state.image);
+  $('promptInput').value='';
+  const img=state.image; clearImage();
+
+  setBusy(true);
+  const thinking=pushMsg('ai', '', null, true);
+  try{
+    let r;
+    if(isRefine){
+      r= await api.post('/api/projects/'+state.project.id+'/refine', {prompt, image:img});
+    }else{
+      r= await api.post('/api/generate', {prompt, image:img});
+    }
+    thinking.remove();
+    if(!r.ok || r.data.error){
+      pushMsg('ai', (r.data.error||'Generation failed.'), null, false, true);
+      setBusy(false); return;
+    }
+    state.project=r.data;
+    pushMsg('ai', summaryLine(r.data), null);
+    if(r.data.notes) pushNotes(r.data.notes);
+    if(r.data.truncated) pushMsg('ai','⚠ The response was cut off at the token limit — some files may be incomplete. Increase “Max output tokens” in Settings, or ask me to continue.', null, false, true);
+    renderAll(true);
+    await loadProjects();
+  }catch(e){
+    thinking.remove();
+    pushMsg('ai','Request error: '+e.message, null, false, true);
+  }
+  setBusy(false);
+}
+function summaryLine(p){
+  const files=Object.keys(p.files);
+  const be = p.has_backend ? ' + Python backend' : '';
+  return `Built “${p.name}”${be}. ${files.length} file${files.length>1?'s':''}: ${files.join(', ')}.`;
+}
+function setBusy(b){
+  state.busy=b;
+  $('sendBtn').disabled=b;
+  $('sendBtn').innerHTML = b ? '<span class="spin"></span>' : (state.project?'Send':'Generate');
+}
+
+// ---------------- chat rendering ----------------
+function pushMsg(who, text, image, thinking=false, isErr=false){
+  $('welcome').style.display='none';
+  const wrap=document.createElement('div');
+  wrap.className='msg '+who;
+  const w=document.createElement('div'); w.className='who'; w.textContent= who==='user'?'You':'Builder';
+  const b=document.createElement('div'); b.className='bubble'+(isErr?' err-bubble':'');
+  if(thinking){ b.innerHTML='<span class="spin"></span> thinking…'; }
+  else b.textContent=text;
+  wrap.appendChild(w); wrap.appendChild(b);
+  if(image){ const im=document.createElement('img'); im.className='thumb'; im.src=image; wrap.appendChild(im); }
+  $('chatScroll').appendChild(wrap);
+  $('chatScroll').scrollTop=$('chatScroll').scrollHeight;
+  return wrap;
+}
+function pushNotes(text){
+  const wrap=document.createElement('div'); wrap.className='msg ai';
+  const n=document.createElement('div'); n.className='notes'; n.textContent='📌 '+text;
+  wrap.appendChild(n); $('chatScroll').appendChild(wrap);
+  $('chatScroll').scrollTop=$('chatScroll').scrollHeight;
+}
+
+// ---------------- render project ----------------
+function renderAll(switchToPreview){
+  const p=state.project; if(!p) return;
+  $('sendBtn').textContent='Send';
+  $('downloadBtn').disabled=false;
+  $('fileCount').textContent=Object.keys(p.files).length;
+  $('verCount').textContent=(p.versions||[]).length;
+  $('keysTab').style.display = p.has_backend ? '' : 'none';
+  renderCode(); renderVersions(); renderKeys();
+  renderPreview();
+  if(switchToPreview) switchTab('preview');
+  // auto-poll if backend present
+  if(p.has_backend){ startPolling(); }
+}
+
+// ---------------- code view ----------------
+function renderCode(){
+  const p=state.project;
+  const files=Object.keys(p.files);
+  $('codeWrap').style.display='grid'; $('codeEmpty').style.display='none';
+  const fl=$('fileList'); fl.innerHTML='';
+  if(!state.activeFile || !p.files[state.activeFile]){
+    state.activeFile = files.find(f=>f.endsWith('index.html')) || files[0];
+  }
+  for(const f of files){
+    const btn=document.createElement('button');
+    btn.className='f'+(f===state.activeFile?' active':'');
+    btn.textContent=f; btn.onclick=()=>{ state.activeFile=f; renderCode(); };
+    fl.appendChild(btn);
+  }
+  const code=$('codeContent');
+  code.textContent=p.files[state.activeFile]||'';
+  const ext=(state.activeFile.split('.').pop()||'').toLowerCase();
+  code.className=''; code.classList.add('language-'+(EXT_LANG[ext]||'plaintext'));
+  if(window.hljs){ try{ hljs.highlightElement(code);}catch(e){} }
+}
+
+// ---------------- versions ----------------
+function renderVersions(){
+  const p=state.project; const list=$('versionList'); list.innerHTML='';
+  for(const v of (p.versions||[])){
+    const row=document.createElement('div'); row.className='vrow';
+    const meta=document.createElement('div'); meta.className='vmeta';
+    const tag=`<span class="vtag ${v.kind}">${v.kind}</span>`;
+    meta.innerHTML=`<div class="vp">${tag}v${v.version_num} — ${escapeHtml(v.prompt||'')}</div>
+      <div class="vt">${new Date(v.created_at*1000).toLocaleString()} · ${v.model||''}</div>`;
+    row.appendChild(meta);
+    if(v.version_num!==p.current_version){
+      const b=document.createElement('button'); b.className='btn ghost'; b.textContent='Restore';
+      b.onclick=()=>rollback(v.version_num); row.appendChild(b);
+    }else{
+      const cur=document.createElement('span'); cur.style.cssText='color:var(--ok);font-size:12px'; cur.textContent='● current';
+      row.appendChild(cur);
+    }
+    list.appendChild(row);
+  }
+}
+async function rollback(vnum){
+  const r=await api.post('/api/projects/'+state.project.id+'/rollback',{version_num:vnum});
+  if(r.ok){ state.project=r.data; renderAll(true); toast('Restored version v'+vnum,true); await loadProjects(); }
+  else toast(r.data.error||'Rollback failed');
+}
+
+// ---------------- backend keys ----------------
+function renderKeys(){
+  const env=(state.project&&state.project.env)||{};
+  const box=$('kvRows'); box.innerHTML='';
+  const entries=Object.entries(env);
+  if(!entries.length) addKvRow('','');
+  else entries.forEach(([k,v])=>addKvRow(k,v));
+}
+function addKvRow(k,v){
+  const row=document.createElement('div'); row.className='kvrow';
+  row.innerHTML=`<input placeholder="KEY_NAME" value="${escapeAttr(k)}">
+                 <input placeholder="value" value="${escapeAttr(v)}">
+                 <button class="kdel">✕</button>`;
+  row.querySelector('.kdel').onclick=()=>row.remove();
+  $('kvRows').appendChild(row);
+}
+async function saveKeys(){
+  if(!state.project) return;
+  const env={};
+  $('kvRows').querySelectorAll('.kvrow').forEach(r=>{
+    const [k,v]=r.querySelectorAll('input'); if(k.value.trim()) env[k.value.trim()]=v.value;
+  });
+  const r=await api.post('/api/projects/'+state.project.id+'/env',{env});
+  if(r.ok){ state.project.env=r.data.env; toast('Keys saved to this project.',true); }
+  else toast('Could not save keys.');
+}
+
+// ---------------- preview & runner ----------------
+function currentPreviewUrl(){
+  const p=state.project; if(!p) return null;
+  const run=p.run||{};
+  if(run.status==='running' && run.url) return run.url+'/';
+  return '/preview/'+p.id+'/?t='+Date.now();
+}
+function renderPreview(){
+  const p=state.project; if(!p){ return; }
+  $('previewEmpty').style.display='none';
+  $('previewBar').style.display='flex';
+  $('runBtn').style.display = p.has_backend ? '' : 'none';
+  const run=p.run||{status:'stopped'};
+  applyRunStatus(run);
+  const fr=$('previewFrame'); fr.style.display='block';
+  const url=currentPreviewUrl();
+  if(fr.dataset.url!==url){ fr.src=url; fr.dataset.url=url; }
+  $('previewUrl').textContent = run.status==='running' && run.url ? run.url : '(static preview — run backend for live API/data)';
+}
+function reloadPreview(){
+  const fr=$('previewFrame'); const u=currentPreviewUrl();
+  fr.src='about:blank'; setTimeout(()=>{ fr.src=u; fr.dataset.url=u; }, 50);
+}
+function applyRunStatus(run){
+  const lamp=$('lamp'); lamp.className='lamp '+(run.status||'stopped');
+  const map={running:'backend running',installing:'installing deps…',starting:'starting…',
+    stopped:'static preview',error:'error',exited:'backend stopped'};
+  $('lampText').textContent=map[run.status]||run.status||'';
+  $('runBtn').style.display = (state.project&&state.project.has_backend && run.status!=='running' && run.status!=='installing' && run.status!=='starting') ? '' : 'none';
+  $('stopBtn').style.display = (run.status==='running'||run.status==='starting'||run.status==='installing') ? '' : 'none';
+  $('runBtn').disabled = (run.status==='installing'||run.status==='starting');
+  // logs
+  const lb=$('logsBox'); if(run.logs){ lb.innerHTML=run.logs.map(l=>`<div class="line">${escapeHtml(l)}</div>`).join(''); lb.scrollTop=lb.scrollHeight; }
+}
+async function runBackend(){
+  if(!state.project) return;
+  $('logsBox').classList.add('open');
+  const r=await api.post('/api/projects/'+state.project.id+'/run',{});
+  if(r.data) { state.project.run=r.data; applyRunStatus(r.data); }
+  startPolling(true);
+}
+async function stopBackend(){
+  if(!state.project) return;
+  const r=await api.post('/api/projects/'+state.project.id+'/stop',{});
+  if(r.data){ state.project.run=r.data; applyRunStatus(r.data); renderPreview(); }
+}
+function startPolling(force){
+  stopPolling();
+  state.pollTimer=setInterval(async ()=>{
+    if(!state.project||!state.project.has_backend){ stopPolling(); return; }
+    const run=await api.get('/api/projects/'+state.project.id+'/run-status');
+    const prev=(state.project.run||{}).status;
+    state.project.run=run; applyRunStatus(run);
+    if(run.status==='running' && prev!=='running'){ renderPreview(); }
+    if(['stopped','error','exited'].includes(run.status) && !force){ /* keep light polling */ }
+  }, 1600);
+}
+function stopPolling(){ if(state.pollTimer){ clearInterval(state.pollTimer); state.pollTimer=null; } }
+
+// ---------------- tabs ----------------
+function switchTab(name){
+  state.activeTab=name;
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('active',t.dataset.tab===name));
+  document.querySelectorAll('.view').forEach(v=>v.classList.toggle('active',v.dataset.view===name));
+}
+
+// ---------------- image ----------------
+function onImagePicked(e){
+  const f=e.target.files[0]; if(!f) return;
+  if(f.size>6*1024*1024){ toast('Image too large (max ~6 MB).'); return; }
+  const rd=new FileReader();
+  rd.onload=()=>{ state.image=rd.result; $('imgThumb').src=rd.result; $('imgName').textContent=f.name; $('imgChip').style.display='flex'; };
+  rd.readAsDataURL(f);
+}
+function clearImage(){ state.image=null; $('imgInput').value=''; $('imgChip').style.display='none'; }
+
+// ---------------- utils ----------------
+function escapeHtml(s){return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function escapeAttr(s){return String(s??'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');}
+</script>
+</body>
+</html>

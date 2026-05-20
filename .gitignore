@@ -1,0 +1,55 @@
+# Runtime artifacts (do not commit)
+config.json
+builder.db
+builder.db-*
+projects/
+*.runner.log
+
+# Test artifacts
+test_builder.db
+test_builder.db-*
+test_config.json
+test_projects/
+rt_builder.db
+rt_builder.db-*
+rt_config.json
+rt_projects/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+.eggs/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+*.cover
+
+# Environment & secrets
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editors (local settings only)
+.idea/
+*.swp
+*.swo
+*~
