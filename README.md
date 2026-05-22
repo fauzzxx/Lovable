@@ -185,7 +185,8 @@ project's `.env`. Neither is committed to git (see `.gitignore`).
 | `storage.py`    | SQLite projects/versions, settings, per-project env + deploy info  |
 | `runner.py`     | Per-project venv + uvicorn subprocess manager (start/stop/logs)    |
 | `deploy.py`     | Vercel adaptation (static/serverless) + Vercel REST API client     |
-| `voice_agent.py`| Inbound-call agent: phone → build → deploy → WhatsApp the link      |
+| `voice_agent.py`| Inbound-call agent (one-shot): phone → build → deploy → WhatsApp    |
+| `voice_realtime.py`| Full-duplex agent: real conversation (Deepgram+Gemini+ElevenLabs)|
 | `index.html`    | The single-page builder UI                                         |
 | `_smoketest.py` | Optional: `python _smoketest.py` — tests parser/storage/API        |
 | `_runnertest.py`| Optional: `python _runnertest.py` — end-to-end backend run test    |
@@ -286,3 +287,63 @@ gallery and contact section."* Hang up, and the Vercel link arrives on WhatsApp.
 - Twilio Sandbox WhatsApp sessions expire after 24h of inactivity — re-send the `join`
   code if messages stop arriving.
 - Standard Twilio call/number/WhatsApp charges apply to your account.
+
+---
+
+## 12. Full-duplex / conversational call agent (`voice_realtime.py`)
+
+This is the upgraded, *natural-sounding* version. Instead of the one-shot "speak then
+wait" flow, it has a **real-time, two-way conversation** with a human-sounding voice,
+and you can interrupt it (barge-in). It chats to gather your requirements — asking up
+to two quick clarifying questions — then builds + deploys + WhatsApps the link, exactly
+like `voice_agent.py`.
+
+**Stack:** Twilio Media Streams (live audio) · Deepgram (streaming speech-to-text) ·
+Gemini (the brain) · ElevenLabs (the voice).
+
+### Extra keys it needs
+
+On top of everything `voice_agent.py` uses, add to `.env`:
+```
+DEEPGRAM_API_KEY=...      # console.deepgram.com  (free credit to start)
+ELEVEN_API_KEY=...        # elevenlabs.io → Profile → API key
+ELEVEN_VOICE_ID=...       # optional; pick a voice in the ElevenLabs library
+```
+
+### Run + expose (same idea, different port)
+
+```bash
+python voice_realtime.py       # serves on :8002
+ngrok http 8002                # then set the Twilio Voice webhook to /voice/incoming
+```
+
+Open `http://localhost:8002/` for a readiness dashboard (Gemini, Vercel, Twilio,
+Deepgram, ElevenLabs, WhatsApp). Use **either** `voice_agent.py` **or**
+`voice_realtime.py` — point your Twilio number's webhook at whichever one you're running.
+
+### What to say on the call
+
+It's a conversation, so just talk naturally. Good openers:
+
+- *"I want a landing page for a coffee shop called Daybreak — menu, hours, and a map."*
+- *"Build me a portfolio site for a photographer, dark theme, with a gallery and a contact form."*
+- *"A simple one-page site for my dog-walking business with pricing and a booking button."*
+
+It'll ask a follow-up or two — answer naturally, e.g.:
+
+- *Agent:* "Any particular colours or vibe?" → *You:* "Warm, earthy tones, friendly and modern."
+- *Agent:* "Which pages do you need?" → *You:* "Just home, about, and contact."
+
+When it says it has enough, it confirms, tells you it's building, and hangs up — the
+Vercel link lands on WhatsApp a minute or two later. Tips: speak in clear, complete
+sentences, and pause when you're done talking so it knows it's your turn finished.
+
+### Notes & limits
+
+- Needs a stable public **wss** endpoint. Free ngrok works for testing but can be flaky
+  for sustained audio; for anything serious, host it (Render/Railway/Fly). It **cannot**
+  run on Vercel (that's serverless — no WebSockets).
+- Three metered APIs bill per call now: Twilio minutes + Deepgram minutes + ElevenLabs
+  characters.
+- Latency matters — Deepgram → Gemini → ElevenLabs round-trips should stay snappy; a
+  fast Gemini model (e.g. `gemini-2.5-flash-lite`) helps.

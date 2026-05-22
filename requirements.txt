@@ -7,3 +7,8 @@ python-dotenv==1.0.1
 
 # Only needed for the inbound-call agent (voice_agent.py): Twilio voice + WhatsApp
 twilio==9.3.7
+
+# Only needed for the full-duplex realtime agent (voice_realtime.py):
+# Twilio Media Streams + Deepgram websocket. (Deepgram/ElevenLabs are called over
+# plain HTTP/WebSocket, no extra SDKs.)
+websockets==13.1
