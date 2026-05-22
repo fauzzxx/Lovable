@@ -97,12 +97,55 @@ your change applied.
 **Export** — Click **⤓ Export** to download the project as a `.zip` you can run or
 deploy anywhere.
 
+**Deploy to Vercel** — Click **▲ Deploy** in the preview bar to publish the project
+to Vercel in one click. See section 6 below.
+
 **Switch / open projects** — Use the dropdown at the top to open a past project or
 start a new one.
 
 ---
 
-## 6. How generated apps are structured
+## 6. One-click deploy to Vercel
+
+**Setup (once):** Create a Vercel account, then make a token at
+<https://vercel.com/account/tokens> and paste it into **⚙ Settings → Vercel token**.
+(Optional: a **Team ID** if you want to deploy under a Vercel team instead of your
+personal account.) You create the account and token yourself — the builder only uses
+the token you provide.
+
+**Deploy:** Open a project, click **▲ Deploy**, choose a target, and go:
+
+- **Preview** — a unique throwaway URL for testing.
+- **Production** — your stable `your-app.vercel.app` URL.
+
+The builder uploads the files via the Vercel API and shows the live URL plus a link to
+the build logs. It polls until the build is **READY** (or shows the error).
+
+**What gets deployed**
+
+- **Static apps** (frontend only) deploy as-is and just work.
+- **Backend apps** are automatically adapted to Vercel's Python serverless layout: an
+  `api/index.py` shim that loads your FastAPI `app`, a root `requirements.txt`, and a
+  `vercel.json` that routes all requests to the function. Any **Backend keys** you
+  saved are pushed to Vercel as encrypted environment variables before the deploy, so
+  add them *first*.
+
+**⚠ Vercel serverless limitations** (the builder warns you about these in the deploy
+dialog when it detects them):
+
+- **WebSockets don't work** on Vercel serverless functions — real-time apps (like a
+  live transcript / call dashboard) won't function there. Use **Render**, **Railway**,
+  or **Fly.io** for those (the **⤓ Export** zip runs anywhere).
+- **SQLite / local files don't persist** — the filesystem is ephemeral and resets per
+  request. Use an external database (Vercel Postgres, Neon, Supabase) for real data.
+- Functions are short-lived, so background workers / long-running loops won't run.
+
+For request/response apps (CRUD with an external API, form handlers, etc.) Vercel works
+great. For stateful or real-time apps, deploy elsewhere.
+
+---
+
+## 7. How generated apps are structured
 
 When a backend is needed, the model produces:
 
@@ -119,7 +162,7 @@ process on whatever port the builder assigns — exactly like the example you pr
 
 ---
 
-## 7. Security note (please read)
+## 8. Security note (please read)
 
 This tool **runs AI-generated Python code on your computer** when you click *Run
 backend*. That is what makes full-stack testing possible, but it also means you
@@ -132,23 +175,25 @@ project's `.env`. Neither is committed to git (see `.gitignore`).
 
 ---
 
-## 8. Project layout (the builder itself)
+## 9. Project layout (the builder itself)
 
 | File            | Purpose                                                            |
 |-----------------|--------------------------------------------------------------------|
-| `server.py`     | FastAPI app: generate/refine/run/preview/versions/export endpoints |
+| `server.py`     | FastAPI app: generate/refine/run/preview/versions/export/deploy    |
 | `llm.py`        | Gemini REST wrapper (text + image input, friendly errors)          |
 | `prompts.py`    | System prompts + the multi-file output parser                      |
-| `storage.py`    | SQLite projects/versions, settings, per-project env                |
+| `storage.py`    | SQLite projects/versions, settings, per-project env + deploy info  |
 | `runner.py`     | Per-project venv + uvicorn subprocess manager (start/stop/logs)    |
+| `deploy.py`     | Vercel adaptation (static/serverless) + Vercel REST API client     |
 | `index.html`    | The single-page builder UI                                         |
 | `_smoketest.py` | Optional: `python _smoketest.py` — tests parser/storage/API        |
 | `_runnertest.py`| Optional: `python _runnertest.py` — end-to-end backend run test    |
+| `_deploytest.py`| Optional: `python _deploytest.py` — tests Vercel adaptation logic  |
 | `projects/`     | Generated apps live here, one folder each (auto-created)           |
 
 ---
 
-## 9. Troubleshooting
+## 10. Troubleshooting
 
 **"model not found (404)"** — The model name in Settings doesn't exist for your key.
 Switch to `gemini-2.5-flash` or `gemini-2.5-flash-lite` and save.
@@ -168,3 +213,11 @@ installing dependencies. Subsequent runs reuse the env and are fast. Watch the �
 **Port already in use** — The builder picks a free port per run automatically; if the
 builder's own port 8000 is taken, set `BUILDER_PORT` (e.g. `set BUILDER_PORT=8010` on
 Windows) before `python server.py`.
+
+**"Vercel rejected your token (401/403)"** — Create a fresh token at
+vercel.com/account/tokens and paste it into Settings. If you deploy under a team, also
+set the **Team ID**.
+
+**Deployed backend errors / 500s** — Most often a missing env var (add it in *Backend
+keys* and redeploy) or an unsupported feature (WebSockets/SQLite — see section 6). Open
+the deploy dialog's **live logs ↗** link to see Vercel's build/runtime output.

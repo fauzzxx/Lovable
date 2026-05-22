@@ -275,9 +275,15 @@ _DEFAULT_CONFIG = {
     "model": "gemini-3.1-flash-lite",
     "temperature": 0.6,
     "max_output_tokens": 32768,
+    # Vercel deployment
+    "vercel_token": "",
+    "vercel_team_id": "",
     # per-project environment variables for the GENERATED apps' backends:
     #   { "<project_id>": { "TWILIO_SID": "...", ... } }
     "project_env": {},
+    # per-project last deployment record:
+    #   { "<project_id>": { "url": ..., "state": ..., "id": ..., "at": ... } }
+    "project_deploys": {},
 }
 
 
@@ -289,12 +295,16 @@ def load_config() -> dict:
         except (json.JSONDecodeError, OSError):
             pass
     cfg.setdefault("project_env", {})
+    cfg.setdefault("project_deploys", {})
     return cfg
 
 
 def save_config(updates: dict) -> dict:
     cfg = load_config()
-    for k in ("gemini_api_key", "model", "temperature", "max_output_tokens"):
+    for k in (
+        "gemini_api_key", "model", "temperature", "max_output_tokens",
+        "vercel_token", "vercel_team_id",
+    ):
         if k in updates and updates[k] is not None:
             cfg[k] = updates[k]
     CONFIG_PATH.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
@@ -322,3 +332,18 @@ def _write_project_dotenv(project_id: str, env: dict[str, str]) -> None:
         return
     lines = [f"{k}={v}" for k, v in env.items()]
     (pdir / ".env").write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
+# Deployment records
+# ---------------------------------------------------------------------------
+
+def get_deploy_record(project_id: str) -> dict:
+    return load_config().get("project_deploys", {}).get(project_id, {})
+
+
+def set_deploy_record(project_id: str, record: dict) -> dict:
+    cfg = load_config()
+    cfg.setdefault("project_deploys", {})[project_id] = record
+    CONFIG_PATH.write_text(json.dumps(cfg, indent=2), encoding="utf-8")
+    return record

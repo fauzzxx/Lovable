@@ -234,6 +234,7 @@
             <button class="btn ghost icon" id="refreshBtn" title="Reload preview">↻</button>
             <button class="btn ghost icon" id="openBtn" title="Open in new tab">↗</button>
             <button class="btn ghost icon" id="logsBtn" title="Toggle logs">▤</button>
+            <button class="btn" id="deployBtn" title="Deploy to Vercel">▲ Deploy</button>
           </div>
           <div class="preview-empty" id="previewEmpty">
             <div>Your live preview will appear here after you generate a site.</div>
@@ -306,9 +307,55 @@
           <input type="number" id="maxTokInput" step="1024" min="1024" />
         </div>
       </div>
+      <hr style="border:0;border-top:1px solid var(--line);margin:6px 0 16px">
+      <div class="field">
+        <label>Vercel token <span style="text-transform:none;color:var(--muted)">(for one-click deploy — optional)</span></label>
+        <input type="password" id="vercelTokenInput" placeholder="Paste your Vercel token (leave blank to keep current)" />
+        <div class="sub">Create one at
+          <a href="https://vercel.com/account/tokens" target="_blank">vercel.com/account/tokens</a>.
+          <span id="vercelStatus"></span></div>
+      </div>
+      <div class="field">
+        <label>Vercel team ID <span style="text-transform:none;color:var(--muted)">(optional)</span></label>
+        <input type="text" id="vercelTeamInput" placeholder="Leave blank to deploy to your personal account" />
+      </div>
       <div class="modal-actions">
         <button class="btn ghost" id="settingsCancel">Cancel</button>
         <button class="btn primary" id="settingsSave">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ DEPLOY MODAL ============ -->
+  <div class="overlay" id="deployOverlay">
+    <div class="modal">
+      <h3>▲ Deploy to Vercel</h3>
+      <div id="deployBody">
+        <div id="deployKindRow" class="field" style="margin-bottom:10px">
+          <label>What will deploy</label>
+          <div id="deployKind" class="sub" style="color:var(--ink)">…</div>
+        </div>
+        <div id="deployWarnings"></div>
+        <div class="field">
+          <label>Target</label>
+          <div style="display:flex;gap:8px">
+            <label style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--ink);text-transform:none;letter-spacing:0">
+              <input type="radio" name="deployTarget" value="preview" checked> Preview <span class="sub" style="margin:0">(unique test URL)</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--ink);text-transform:none;letter-spacing:0">
+              <input type="radio" name="deployTarget" value="production"> Production <span class="sub" style="margin:0">(your-app.vercel.app)</span>
+            </label>
+          </div>
+        </div>
+        <div id="deployNoToken" class="notes" style="display:none;background:#2a1416;border-color:#52303a;color:#ffb4b4">
+          No Vercel token set. Open ⚙ Settings, paste a token from
+          <a href="https://vercel.com/account/tokens" target="_blank" style="color:#ffd4d4">vercel.com/account/tokens</a>, then come back.
+        </div>
+        <div id="deployStatus" style="display:none;margin-top:6px"></div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn ghost" id="deployCancel">Close</button>
+        <button class="btn primary" id="deployGo">Deploy</button>
       </div>
     </div>
   </div>
@@ -379,6 +426,11 @@ function bindEvents(){
 
   $('addKvBtn').onclick = ()=> addKvRow('','');
   $('saveKvBtn').onclick = saveKeys;
+
+  $('deployBtn').onclick = openDeploy;
+  $('deployCancel').onclick = ()=> $('deployOverlay').classList.remove('open');
+  $('deployOverlay').onclick = (e)=>{ if(e.target===$('deployOverlay')) $('deployOverlay').classList.remove('open'); };
+  $('deployGo').onclick = doDeploy;
 }
 
 // ---------------- settings ----------------
@@ -392,6 +444,9 @@ function openSettings(){
   $('tempInput').value=s.temperature ?? 0.6;
   $('maxTokInput').value=s.max_output_tokens ?? 32768;
   $('keyStatus').textContent = s.has_key ? `A key is set (${s.key_hint}).` : 'No key set yet.';
+  $('vercelTokenInput').value='';
+  $('vercelTeamInput').value=s.vercel_team_id||'';
+  $('vercelStatus').textContent = s.has_vercel_token ? `A token is set (${s.vercel_token_hint}).` : 'No token set yet.';
   $('settingsOverlay').classList.add('open');
 }
 async function saveSettings(){
@@ -400,6 +455,8 @@ async function saveSettings(){
     model: $('modelInput').value.trim(),
     temperature: parseFloat($('tempInput').value),
     max_output_tokens: parseInt($('maxTokInput').value,10),
+    vercel_token: $('vercelTokenInput').value.trim(),
+    vercel_team_id: $('vercelTeamInput').value.trim(),
   };
   const r= await api.post('/api/settings', body);
   if(r.ok){ state.settings=r.data; $('settingsOverlay').classList.remove('open'); toast('Settings saved.',true); updateComposerHint(); }
@@ -427,7 +484,8 @@ async function loadProjects(){
 }
 async function onProjectSelect(){
   const id=$('projectSelect').value;
-  stopPolling();
+  stopPolling(); stopDeployPoll();
+  $('deployOverlay').classList.remove('open');
   if(!id){ resetToNew(); return; }
   const p= await api.get('/api/projects/'+id);
   if(p.error){ toast(p.error); return; }
@@ -612,6 +670,97 @@ async function saveKeys(){
   const r=await api.post('/api/projects/'+state.project.id+'/env',{env});
   if(r.ok){ state.project.env=r.data.env; toast('Keys saved to this project.',true); }
   else toast('Could not save keys.');
+}
+
+// ---------------- deploy to Vercel ----------------
+let deployPoll=null;
+function stopDeployPoll(){ if(deployPoll){ clearInterval(deployPoll); deployPoll=null; } }
+async function openDeploy(){
+  if(!state.project){ toast('Generate a site first.'); return; }
+  stopDeployPoll();
+  $('deployStatus').style.display='none'; $('deployStatus').innerHTML='';
+  $('deployWarnings').innerHTML='';
+  $('deployGo').disabled=true; $('deployGo').textContent='Deploy';
+  $('deployKind').textContent='Checking…';
+  $('deployNoToken').style.display='none';
+  $('deployOverlay').classList.add('open');
+
+  const info= await api.get('/api/projects/'+state.project.id+'/deploy-info');
+  if(info.error){ $('deployKind').textContent=info.error; return; }
+  state.deployInfo=info;
+  const kindTxt = info.kind==='python'
+    ? `A Python (FastAPI) app — ${info.files.length} files, deployed as a Vercel serverless function.`
+    : `A static site — ${info.files.length} file(s), served directly by Vercel.`;
+  $('deployKind').textContent=kindTxt;
+
+  // warnings
+  const wb=$('deployWarnings'); wb.innerHTML='';
+  (info.warnings||[]).forEach(w=>{
+    const d=document.createElement('div'); d.className='notes';
+    d.style.cssText='background:#2a210f;border-color:#5a4718;color:#ffe2a8;margin-bottom:8px';
+    d.textContent='⚠ '+w; wb.appendChild(d);
+  });
+  if(info.kind==='python' && info.needs_env && info.env_count===0){
+    const d=document.createElement('div'); d.className='notes';
+    d.style.cssText='background:#2a210f;border-color:#5a4718;color:#ffe2a8;margin-bottom:8px';
+    d.textContent='⚠ This backend needs API keys but none are set. Add them in the “Backend keys” tab first, or it may fail at runtime.';
+    wb.appendChild(d);
+  }
+  // last deploy
+  if(info.last_deploy && info.last_deploy.url){
+    const ld=info.last_deploy;
+    const d=document.createElement('div'); d.className='sub'; d.style.marginBottom='8px';
+    d.innerHTML=`Last deploy: <a href="${ld.url}" target="_blank" style="color:var(--accent)">${ld.url}</a> (${ld.state||'?'})`;
+    wb.appendChild(d);
+  }
+
+  if(!info.has_vercel_token){ $('deployNoToken').style.display='block'; $('deployGo').disabled=true; }
+  else { $('deployGo').disabled=false; }
+}
+async function doDeploy(){
+  if(!state.project) return;
+  const production = document.querySelector('input[name="deployTarget"]:checked').value==='production';
+  $('deployGo').disabled=true; $('deployGo').innerHTML='<span class="spin"></span>';
+  const sb=$('deployStatus'); sb.style.display='block';
+  sb.innerHTML='<div class="notes" style="background:var(--card);border-color:var(--line);color:var(--muted)">Uploading files to Vercel…</div>';
+  const r= await api.post('/api/projects/'+state.project.id+'/deploy', {production});
+  if(!r.ok || r.data.error){
+    sb.innerHTML=`<div class="notes" style="background:#2a1416;border-color:#52303a;color:#ffb4b4">${escapeHtml(r.data.error||'Deploy failed.')}</div>`;
+    $('deployGo').disabled=false; $('deployGo').textContent='Deploy'; return;
+  }
+  renderDeployState(r.data);
+  if(r.data.id) startDeployPoll(r.data.id);
+}
+function startDeployPoll(id){
+  stopDeployPoll();
+  deployPoll=setInterval(async ()=>{
+    const info= await api.get('/api/projects/'+state.project.id+'/deploy-status?id='+encodeURIComponent(id));
+    if(info.error){ return; }
+    renderDeployState(info);
+    if(['READY','ERROR','CANCELED'].includes(info.state)){
+      stopDeployPoll();
+      $('deployGo').disabled=false; $('deployGo').textContent='Deploy again';
+      if(state.project) state.project.deploy=info;
+    }
+  }, 2500);
+}
+function renderDeployState(d){
+  const sb=$('deployStatus'); sb.style.display='block';
+  const url=d.url||'';
+  const stateColors={READY:['#15241c','#1f4733','#bdf0d0'],ERROR:['#2a1416','#52303a','#ffb4b4'],
+    CANCELED:['#2a1416','#52303a','#ffb4b4']};
+  const c=stateColors[d.state]||['#2a210f','#5a4718','#ffe2a8'];
+  let inner='';
+  if(d.state==='READY'){
+    inner=`✅ Live at <a href="${url}" target="_blank" style="color:#bdf0d0;font-weight:600">${url}</a>`;
+  }else if(d.state==='ERROR'){
+    inner=`❌ Build failed.${d.error?(' '+escapeHtml(d.error)):''} `+(d.inspector?`<a href="${d.inspector}" target="_blank" style="color:#ffb4b4">View logs ↗</a>`:'');
+  }else{
+    inner=`<span class="spin"></span> Building… (${d.state||'queued'}) `+
+      (d.inspector?`<a href="${d.inspector}" target="_blank" style="color:var(--accent)">live logs ↗</a>`:'')+
+      (url?`<br><span class="sub" style="margin:6px 0 0">URL: <a href="${url}" target="_blank" style="color:var(--accent)">${url}</a></span>`:'');
+  }
+  sb.innerHTML=`<div class="notes" style="background:${c[0]};border-color:${c[1]};color:${c[2]}">${inner}</div>`;
 }
 
 // ---------------- preview & runner ----------------

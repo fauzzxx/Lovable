@@ -27,6 +27,7 @@ from fastapi.responses import (
     Response,
 )
 
+import deploy
 import llm
 import prompts
 import storage
@@ -123,12 +124,16 @@ async def index():
 async def get_settings():
     cfg = storage.load_config()
     key = cfg.get("gemini_api_key", "") or ""
+    vtok = cfg.get("vercel_token", "") or ""
     return {
         "has_key": bool(key),
         "key_hint": ("…" + key[-4:]) if len(key) >= 4 else "",
         "model": cfg.get("model", "gemini-2.5-flash"),
         "temperature": cfg.get("temperature", 0.6),
         "max_output_tokens": cfg.get("max_output_tokens", 32768),
+        "has_vercel_token": bool(vtok),
+        "vercel_token_hint": ("…" + vtok[-4:]) if len(vtok) >= 4 else "",
+        "vercel_team_id": cfg.get("vercel_team_id", ""),
     }
 
 
@@ -151,6 +156,10 @@ async def post_settings(request: Request):
             updates["max_output_tokens"] = max(1024, int(body["max_output_tokens"]))
         except (TypeError, ValueError):
             pass
+    if body.get("vercel_token"):
+        updates["vercel_token"] = body["vercel_token"].strip()
+    if body.get("vercel_team_id") is not None:
+        updates["vercel_team_id"] = body["vercel_team_id"].strip()
     storage.save_config(updates)
     return await get_settings()
 
@@ -177,6 +186,7 @@ async def project_get(project_id: str):
         return _err("Project not found", 404)
     p["env"] = storage.get_project_env(project_id)
     p["run"] = runner.status(project_id)
+    p["deploy"] = storage.get_deploy_record(project_id)
     return p
 
 
@@ -329,6 +339,96 @@ async def stop_backend(project_id: str):
 @app.get("/api/projects/{project_id}/run-status")
 async def run_status(project_id: str):
     return runner.status(project_id)
+
+
+# ---------------------------------------------------------------------------
+# Deploy to Vercel
+# ---------------------------------------------------------------------------
+
+@app.get("/api/projects/{project_id}/deploy-info")
+async def deploy_info(project_id: str):
+    """Preview what will be deployed: kind (static/python), warnings, file list,
+    and whether a Vercel token is configured — without deploying anything."""
+    p = storage.get_project(project_id)
+    if not p:
+        return _err("Project not found", 404)
+    prep = deploy.prepare_files(p["files"])
+    cfg = storage.load_config()
+    return {
+        "kind": prep.kind,
+        "warnings": prep.warnings,
+        "files": sorted(prep.files.keys()),
+        "has_vercel_token": bool(cfg.get("vercel_token")),
+        "needs_env": prep.needs_env,
+        "env_count": len(storage.get_project_env(project_id)),
+        "last_deploy": storage.get_deploy_record(project_id),
+        "suggested_name": deploy.slugify_name(p["name"]),
+    }
+
+
+@app.post("/api/projects/{project_id}/deploy")
+async def deploy_project(project_id: str, request: Request):
+    body = await request.json()
+    production = bool(body.get("production"))
+
+    p = storage.get_project(project_id)
+    if not p:
+        return _err("Project not found", 404)
+
+    cfg = storage.load_config()
+    token = cfg.get("vercel_token", "")
+    if not token:
+        return _err(
+            "No Vercel token set. Open Settings and add a token from "
+            "vercel.com/account/tokens.",
+            401,
+        )
+    team_id = (cfg.get("vercel_team_id") or "").strip() or None
+
+    prep = deploy.prepare_files(p["files"])
+    name = deploy.slugify_name(p["name"])
+    env = storage.get_project_env(project_id)
+
+    try:
+        # Pre-create project + push env vars so the deployment picks them up.
+        if prep.kind == "python" and env:
+            deploy.ensure_project_and_env(token, name, env, team_id)
+        result = deploy.create_deployment(
+            token, name, prep.files, production=production, team_id=team_id
+        )
+    except deploy.VercelError as e:
+        return _err(e.message, e.status or 502)
+
+    import time as _t
+    record = {
+        "id": result["id"],
+        "url": result["url"],
+        "state": result["state"],
+        "inspector": result.get("inspector"),
+        "production": production,
+        "kind": prep.kind,
+        "at": _t.time(),
+    }
+    storage.set_deploy_record(project_id, record)
+    return {**record, "warnings": prep.warnings}
+
+
+@app.get("/api/projects/{project_id}/deploy-status")
+async def deploy_status(project_id: str, id: str):
+    cfg = storage.load_config()
+    token = cfg.get("vercel_token", "")
+    if not token:
+        return _err("No Vercel token set.", 401)
+    team_id = (cfg.get("vercel_team_id") or "").strip() or None
+    try:
+        info = deploy.get_deployment(token, id, team_id)
+    except deploy.VercelError as e:
+        return _err(e.message, e.status or 502)
+    rec = storage.get_deploy_record(project_id)
+    if rec.get("id") == info["id"]:
+        rec.update({"state": info["state"], "url": info["url"] or rec.get("url")})
+        storage.set_deploy_record(project_id, rec)
+    return info
 
 
 # ---------------------------------------------------------------------------
