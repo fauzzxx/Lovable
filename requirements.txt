@@ -4,3 +4,6 @@ uvicorn[standard]==0.34.0
 httpx==0.28.1
 python-multipart==0.0.20
 python-dotenv==1.0.1
+
+# Only needed for the inbound-call agent (voice_agent.py): Twilio voice + WhatsApp
+twilio==9.3.7

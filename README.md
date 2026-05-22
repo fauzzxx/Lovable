@@ -185,6 +185,7 @@ project's `.env`. Neither is committed to git (see `.gitignore`).
 | `storage.py`    | SQLite projects/versions, settings, per-project env + deploy info  |
 | `runner.py`     | Per-project venv + uvicorn subprocess manager (start/stop/logs)    |
 | `deploy.py`     | Vercel adaptation (static/serverless) + Vercel REST API client     |
+| `voice_agent.py`| Inbound-call agent: phone → build → deploy → WhatsApp the link      |
 | `index.html`    | The single-page builder UI                                         |
 | `_smoketest.py` | Optional: `python _smoketest.py` — tests parser/storage/API        |
 | `_runnertest.py`| Optional: `python _runnertest.py` — end-to-end backend run test    |
@@ -221,3 +222,67 @@ set the **Team ID**.
 **Deployed backend errors / 500s** — Most often a missing env var (add it in *Backend
 keys* and redeploy) or an unsupported feature (WebSockets/SQLite — see section 6). Open
 the deploy dialog's **live logs ↗** link to see Vercel's build/runtime output.
+
+---
+
+## 11. Phone → website → WhatsApp (inbound call agent)
+
+`voice_agent.py` lets you **call a phone number, speak what you want, and receive the
+live Vercel link on WhatsApp** a minute or two later. It reuses the same engine
+(Gemini generation + Vercel deploy) and reads your Gemini key & Vercel token from the
+builder's Settings, so you only configure those once.
+
+**Call flow:** dial → "describe the website you'd like me to build" → you speak → it
+reads your request back, says it'll text you, and hangs up → in the background it
+generates the site, deploys it to Vercel **production**, and **WhatsApps you the link**.
+
+### Setup
+
+1. **Create a Twilio account** (you do this yourself) at <https://console.twilio.com>
+   and buy a phone number with **Voice** capability.
+2. **Set credentials** in `.env` (copy from `.env.example`):
+   ```
+   TWILIO_ACCOUNT_SID=ACxxxxxxxx
+   TWILIO_AUTH_TOKEN=xxxxxxxx
+   WHATSAPP_TO=+1XXXXXXXXXX        # your WhatsApp number (E.164)
+   ```
+3. **Enable WhatsApp.** Easiest for testing is the **Twilio WhatsApp Sandbox**
+   (Console → Messaging → Try it out → WhatsApp). From your phone, send
+   `join <your-sandbox-code>` to **+1 415 523 8886** so Twilio is allowed to message
+   you. (Leave `TWILIO_WHATSAPP_FROM` as the default sandbox number.) For production,
+   set up an approved WhatsApp sender and put its number in `TWILIO_WHATSAPP_FROM`.
+4. **Make sure Gemini + Vercel are set** in the builder's ⚙ Settings (run `server.py`
+   once if you haven't), since the agent reuses them.
+
+### Run + expose
+
+The agent must be reachable by Twilio, so run it locally and tunnel it:
+
+```bash
+python voice_agent.py            # serves on http://localhost:8001
+# in another terminal:
+ngrok http 8001                  # gives you https://<something>.ngrok-free.app
+```
+
+Then in the Twilio Console, open your phone number → **Voice → A call comes in** →
+**Webhook**, set it to:
+
+```
+https://<your-tunnel>/voice/incoming      (HTTP POST)
+```
+
+Open `http://localhost:8001/` to see a readiness dashboard (green ticks for Gemini,
+Vercel, Twilio, WhatsApp) and a live list of call jobs and their resulting links.
+
+### Now just call your Twilio number
+
+Say something like *"build a one-page portfolio site for a wedding photographer with a
+gallery and contact section."* Hang up, and the Vercel link arrives on WhatsApp.
+
+### Notes & limits
+
+- Builds that need **WebSockets or SQLite won't fully work on Vercel** (see section 6).
+  The agent still deploys them, but real-time/stateful features won't run there.
+- Twilio Sandbox WhatsApp sessions expire after 24h of inactivity — re-send the `join`
+  code if messages stop arriving.
+- Standard Twilio call/number/WhatsApp charges apply to your account.
