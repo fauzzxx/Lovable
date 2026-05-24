@@ -44,6 +44,7 @@ ENTRY_CANDIDATES = [
 ]
 
 _APP_VAR_RE = re.compile(r"^\s*(\w+)\s*=\s*FastAPI\s*\(", re.MULTILINE)
+_FLASK_VAR_RE = re.compile(r"^\s*(\w+)\s*=\s*Flask\s*\(", re.MULTILINE)
 
 
 @dataclass
@@ -105,30 +106,52 @@ class RunnerManager:
 
     @staticmethod
     def _find_entry(pdir: Path) -> Path | None:
-        for rel in ENTRY_CANDIDATES:
-            p = pdir / rel
-            if p.exists():
-                return p
-        # last resort: any *.py containing `= FastAPI(`
-        for p in pdir.rglob("*.py"):
-            if ".venv" in p.parts:
-                continue
+        candidates = [pdir / rel for rel in ENTRY_CANDIDATES]
+        candidates = [p for p in candidates if p.exists()]
+        if not candidates:
+            # last resort: any *.py that constructs a FastAPI or Flask app
+            for p in pdir.rglob("*.py"):
+                if ".venv" in p.parts or "__pycache__" in p.parts:
+                    continue
+                try:
+                    src = p.read_text(encoding="utf-8", errors="ignore")
+                except OSError:
+                    continue
+                if "FastAPI(" in src or "Flask(" in src:
+                    candidates.append(p)
+        if not candidates:
+            return None
+
+        # Prefer a FastAPI app over a Flask one when both exist — e.g. an app
+        # converted from Flask to FastAPI that left the old file behind.
+        def rank(p: Path) -> int:
             try:
-                if "FastAPI(" in p.read_text(encoding="utf-8", errors="ignore"):
-                    return p
+                src = p.read_text(encoding="utf-8", errors="ignore")
             except OSError:
-                continue
-        return None
+                return 9
+            if "FastAPI(" in src:
+                return 0
+            if "Flask(" in src:
+                return 1
+            return 2
+
+        candidates.sort(key=rank)  # stable: keeps ENTRY_CANDIDATES order within a rank
+        return candidates[0]
 
     @staticmethod
-    def _app_var(entry: Path) -> str:
+    def _detect(entry: Path) -> tuple[str, str]:
+        """Return (framework, app_var) — framework is 'fastapi' or 'flask'."""
         try:
-            m = _APP_VAR_RE.search(entry.read_text(encoding="utf-8", errors="ignore"))
-            if m:
-                return m.group(1)
+            src = entry.read_text(encoding="utf-8", errors="ignore")
         except OSError:
-            pass
-        return "app"
+            return "fastapi", "app"
+        m = _APP_VAR_RE.search(src)
+        if m:
+            return "fastapi", m.group(1)
+        m = _FLASK_VAR_RE.search(src)
+        if m:
+            return "flask", m.group(1)
+        return "fastapi", "app"
 
     @staticmethod
     def _requirements_files(pdir: Path) -> list[Path]:
@@ -194,20 +217,31 @@ class RunnerManager:
                 )
 
             # 2. upgrade pip quietly + install requirements
+            framework, app_var = self._detect(entry)
             reqs = self._requirements_files(pdir)
-            # uvicorn/fastapi are required for the entry point regardless
             st.log("Installing dependencies (this can take a minute the first time)…")
             base = [str(venv_py), "-m", "pip", "install", "--disable-pip-version-check", "-q"]
-            self._run_blocking(base + ["fastapi", "uvicorn[standard]"], st, pdir)
+            if framework == "flask":
+                # werkzeug ships with flask; requests covers apps that call HTTP APIs.
+                self._run_blocking(base + ["flask", "requests"], st, pdir)
+            else:
+                # jinja2 → Jinja2Templates, python-multipart → Form(...),
+                # itsdangerous → SessionMiddleware, werkzeug → password hashing.
+                self._run_blocking(
+                    base + [
+                        "fastapi", "uvicorn[standard]", "jinja2",
+                        "python-multipart", "itsdangerous", "werkzeug", "requests",
+                    ],
+                    st, pdir,
+                )
             for rf in reqs:
                 st.log(f"pip install -r {rf.relative_to(pdir)}")
                 self._run_blocking(base + ["-r", str(rf)], st, pdir)
 
-            # 3. launch uvicorn
+            # 3. launch the backend
             st.status = "starting"
             st.message = "Starting backend…"
             port = self._free_port()
-            app_var = self._app_var(entry)
             run_cwd = entry.parent
             module = entry.stem  # e.g. "server"
 
@@ -220,13 +254,48 @@ class RunnerManager:
                 f"{run_cwd}{os.pathsep}{pdir}{os.pathsep}" + env.get("PYTHONPATH", "")
             )
 
-            cmd = [
-                str(venv_py), "-m", "uvicorn",
-                f"{module}:{app_var}",
-                "--host", "127.0.0.1",
-                "--port", str(port),
-            ]
-            st.log(f"$ {' '.join(cmd)}  (cwd={run_cwd})")
+            if framework == "flask":
+                # Import the app, run init_db() if present (recreates the SQLite
+                # schema + seed data), and serve on the assigned port. Running via
+                # -c means the module's __main__ block (with its hard-coded port)
+                # never fires, so we stay on the free port the preview expects.
+                shim = (
+                    "import os, importlib;"
+                    f"m=importlib.import_module('{module}');"
+                    "fn=getattr(m,'init_db',None);"
+                    "fn() if callable(fn) else None;"
+                    f"app=getattr(m,'{app_var}');"
+                    "app.run(host='127.0.0.1',port=int(os.environ['PORT']),"
+                    "debug=False,use_reloader=False,threaded=True)"
+                )
+                cmd = [str(venv_py), "-c", shim]
+            else:
+                # FastAPI apps that define init_db() only call it under __main__,
+                # which uvicorn never triggers. Since we don't copy the binary .db,
+                # run init_db() once now so tables + seed data exist before serving.
+                try:
+                    entry_src = entry.read_text(encoding="utf-8", errors="ignore")
+                except OSError:
+                    entry_src = ""
+                if "def init_db" in entry_src:
+                    st.log("Initializing database (init_db)…")
+                    init_proc = subprocess.run(
+                        [str(venv_py), "-c",
+                         f"import importlib; importlib.import_module('{module}').init_db()"],
+                        cwd=str(run_cwd), env=env,
+                        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                    )
+                    for line in (init_proc.stdout or "").splitlines():
+                        st.log(line)
+                    if init_proc.returncode != 0:
+                        st.log("init_db warning: returned non-zero (continuing anyway).")
+                cmd = [
+                    str(venv_py), "-m", "uvicorn",
+                    f"{module}:{app_var}",
+                    "--host", "127.0.0.1",
+                    "--port", str(port),
+                ]
+            st.log(f"$ {framework} backend → {module}:{app_var} on :{port}  (cwd={run_cwd})")
 
             creationflags = subprocess.CREATE_NEW_PROCESS_GROUP if IS_WIN else 0
             popen_kwargs = dict(

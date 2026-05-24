@@ -8,7 +8,7 @@ Stack (mirrors the proven outbound-agent pattern):
   • Twilio Media Streams  → bidirectional μ-law 8k audio over a WebSocket
   • Deepgram streaming ASR → always-on transcription + VAD (enables barge-in)
   • Gemini                → the conversation brain (via llm.py REST wrapper)
-  • ElevenLabs streaming   → realistic, low-latency voice
+  • Deepgram Aura TTS      → realistic, low-latency voice (free-tier friendly)
   • Barge-in               → if you start talking, the agent stops and listens
 
 It reuses the build → deploy → WhatsApp pipeline from voice_agent.py, so the
@@ -21,10 +21,9 @@ Expose (Twilio must reach it over wss):
 Then set your Twilio number's Voice webhook to  https://<tunnel>/voice/incoming
 
 Extra .env keys (on top of the Twilio/WhatsApp vars used by voice_agent.py):
-    DEEPGRAM_API_KEY=...
-    ELEVEN_API_KEY=...
-    ELEVEN_VOICE_ID=...          # optional; defaults to a public ElevenLabs voice
-    PUBLIC_BASE_URL=https://...  # optional; otherwise derived from the request host
+    DEEPGRAM_API_KEY=...          # does BOTH speech-to-text and text-to-speech (Aura)
+    DEEPGRAM_TTS_MODEL=...        # optional; default aura-asteria-en
+    PUBLIC_BASE_URL=https://...   # optional; otherwise derived from the request host
 """
 
 from __future__ import annotations
@@ -49,9 +48,12 @@ import voice_agent as va  # reuse start_build_job, _twilio_client, config, JOBS
 load_dotenv(Path(__file__).resolve().parent / ".env")
 
 DEEPGRAM_API_KEY = os.getenv("DEEPGRAM_API_KEY", "")
-ELEVEN_API_KEY = os.getenv("ELEVEN_API_KEY", "")
-# Default to "Rachel", a stock ElevenLabs voice, so it works without setup.
-ELEVEN_VOICE_ID = os.getenv("ELEVEN_VOICE_ID", "21m00Tcm4TlvDq8ikWAM")
+# Text-to-speech now uses Deepgram "Aura" (same key as speech-to-text). It streams
+# mu-law 8k natively — exactly what Twilio needs — and is covered by Deepgram's free
+# credit, so no ElevenLabs / paid plan required. Pick any Aura voice below.
+# aura-asteria-en (warm female) · aura-luna-en · aura-stella-en · aura-athena-en
+# aura-orion-en (male) · aura-arcas-en · aura-perseus-en · aura-zeus-en
+DEEPGRAM_TTS_MODEL = os.getenv("DEEPGRAM_TTS_MODEL", "aura-asteria-en")
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
 MAX_TURNS = int(os.getenv("VOICE_MAX_TURNS", "4"))
 
@@ -152,7 +154,7 @@ class Session:
             await self.cancel_tts()
             await self.send_twilio_clear()
 
-    # ---------- TTS (ElevenLabs streaming) ----------
+    # ---------- TTS (Deepgram Aura streaming) ----------
     async def speak(self, text: str, clear_first: bool = True):
         await self.cancel_tts()
         if clear_first:
@@ -161,30 +163,23 @@ class Session:
         self.tts_task = asyncio.create_task(self._stream_tts(text))
 
     async def _stream_tts(self, text: str):
+        # Deepgram Aura TTS → raw mu-law 8k (Twilio's native format), low latency.
         url = (
-            f"https://api.elevenlabs.io/v1/text-to-speech/{ELEVEN_VOICE_ID}/stream"
-            f"?output_format=ulaw_8000&optimize_streaming_latency=3"
+            f"https://api.deepgram.com/v1/speak?model={DEEPGRAM_TTS_MODEL}"
+            f"&encoding=mulaw&sample_rate=8000&container=none"
         )
         headers = {
-            "xi-api-key": ELEVEN_API_KEY,
+            "Authorization": f"Token {DEEPGRAM_API_KEY}",
             "Content-Type": "application/json",
-            "Accept": "audio/basic",
         }
-        body = {
-            "text": text,
-            "model_id": "eleven_turbo_v2_5",
-            "voice_settings": {
-                "stability": 0.4, "similarity_boost": 0.8,
-                "style": 0.0, "use_speaker_boost": True,
-            },
-        }
+        body = {"text": text}
         sent = 0
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 async with client.stream("POST", url, json=body, headers=headers) as resp:
                     if resp.status_code != 200:
                         err = await resp.aread()
-                        print(f"❌ ElevenLabs {resp.status_code}: {err[:200]!r}")
+                        print(f"❌ Deepgram TTS {resp.status_code}: {err[:200]!r}")
                         return
                     async for chunk in resp.aiter_bytes(chunk_size=4096):
                         if not self.ai_speaking:
@@ -432,12 +427,11 @@ async def home():
 {chip(bool(cfg.get('gemini_api_key')), 'Gemini')}
 {chip(bool(cfg.get('vercel_token')), 'Vercel')}
 {chip(bool(va.TWILIO_SID and va.TWILIO_AUTH), 'Twilio')}
-{chip(bool(DEEPGRAM_API_KEY), 'Deepgram')}
-{chip(bool(ELEVEN_API_KEY), 'ElevenLabs')}
+{chip(bool(DEEPGRAM_API_KEY), 'Deepgram (speech + voice)')}
 {chip(bool(va.WHATSAPP_TO), 'WhatsApp')}
 </div>
 <p style="color:#555;font-size:14px">Webhook (HTTP POST): <code>/voice/incoming</code>.
-Set Gemini &amp; Vercel in the builder's Settings; Twilio, Deepgram, ElevenLabs &amp;
+Set Gemini &amp; Vercel in the builder's Settings; Twilio, Deepgram &amp;
 WhatsApp in <code>.env</code>.</p>
 </body>"""
 

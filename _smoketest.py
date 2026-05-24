@@ -92,7 +92,7 @@ import server
 client = TestClient(server.app)
 
 r = client.get("/")
-check("GET / serves UI", r.status_code == 200 and "AI Website Builder" in r.text)
+check("GET / serves UI", r.status_code == 200 and "Weaver" in r.text)
 
 r = client.get("/api/settings")
 check("GET /api/settings", r.status_code == 200 and "model" in r.json())

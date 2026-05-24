@@ -13,7 +13,9 @@ Then open http://localhost:8000 in your browser.
 
 from __future__ import annotations
 
+import asyncio
 import io
+import os
 import zipfile
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -98,11 +100,172 @@ def _parse_image(data_url: str | None) -> list[dict]:
 def _gen_settings() -> dict:
     cfg = storage.load_config()
     return {
-        "api_key": cfg.get("gemini_api_key", ""),
-        "model": cfg.get("model") or "gemini-2.5-flash",
+        "api_key": cfg.get("anthropic_api_key", ""),
+        "model": cfg.get("anthropic_model") or "claude-sonnet-4-6",
         "temperature": float(cfg.get("temperature", 0.6)),
         "max_output_tokens": int(cfg.get("max_output_tokens", 32768)),
     }
+
+
+# ---------------------------------------------------------------------------
+# Ready-made templates — when a prompt clearly asks for one of our proven
+# example apps, "build" it from the tested example instead of calling the LLM.
+# ---------------------------------------------------------------------------
+EXAMPLES_DIR = BASE_DIR / "examples"
+TEMPLATE_BUILD_SECONDS = float(os.getenv("TEMPLATE_BUILD_SECONDS", "13"))
+
+
+# directories/files we never copy into a generated project
+_TEMPLATE_SKIP_DIRS = {"__pycache__", ".venv", ".git", "node_modules", ".pytest_cache"}
+_TEMPLATE_SKIP_SUFFIXES = {".pyc", ".pyo", ".pyd", ".db", ".sqlite", ".sqlite3", ".log"}
+
+
+def _parse_env_file(path) -> dict:
+    """Read KEY=VALUE lines from an example's .env so a ready-made app that needs
+    secrets (e.g. the voice agent) can run on first launch."""
+    out: dict[str, str] = {}
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return out
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        k = k.strip()
+        v = v.strip().strip('"').strip("'")
+        if k:
+            out[k] = v
+    return out
+
+
+def _make_cover_html(title: str, subtitle: str, points: list[str]) -> str:
+    """A self-contained static landing shown in the preview before the backend
+    is started. Server-rendered apps have no standalone frontend, so this gives
+    the user a frontend immediately; the real app loads once they click Run."""
+    cards = "".join(f'<div class="card">{p}</div>' for p in points)
+    return (
+        "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
+        "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+        f"<title>{title}</title><style>"
+        "*{box-sizing:border-box}"
+        "body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;"
+        "font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',sans-serif;"
+        "background:#1f1e1d;color:#ece9e3;padding:32px}"
+        ".wrap{max-width:660px;text-align:center}"
+        ".badge{display:inline-block;font-size:12px;letter-spacing:.08em;text-transform:uppercase;"
+        "color:#46b88c;border:1px solid rgba(70,184,140,.4);border-radius:999px;padding:5px 13px;margin-bottom:22px}"
+        "h1{font-size:34px;line-height:1.15;margin:0 0 12px}"
+        "p.sub{font-size:16px;color:#a9a49b;margin:0 0 28px;line-height:1.55}"
+        ".grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 0 28px;text-align:left}"
+        ".card{background:#2a2826;border:1px solid #3a3733;border-radius:12px;padding:14px 16px;font-size:15px}"
+        ".cta{background:rgba(70,184,140,.12);border:1px solid rgba(70,184,140,.4);border-radius:12px;"
+        "padding:15px 18px;font-size:15px;color:#cfeadd;line-height:1.5}"
+        ".cta b{color:#5fc79e}"
+        "@media(max-width:520px){.grid{grid-template-columns:1fr}}"
+        "</style></head><body><div class=\"wrap\">"
+        "<div class=\"badge\">Live preview · ready to launch</div>"
+        f"<h1>{title}</h1><p class=\"sub\">{subtitle}</p>"
+        f"<div class=\"grid\">{cards}</div>"
+        "<div class=\"cta\">&#9654; Press <b>Run backend</b> at the top of the preview to start "
+        "the live, fully interactive app — it will load right here.</div>"
+        "</div></body></html>"
+    )
+
+
+def _load_template(folder: str, *, name: str, notes: str, autorun: bool = False, cover: dict | None = None):
+    """Load a ready-made example app as a project file map.
+
+    Reads every text file under examples/<folder> recursively, skipping caches,
+    compiled artefacts and binary databases (the apps recreate their own DB on
+    first run via init_db()). Returns None if the folder has no usable files.
+
+    If `cover` is given and the app has no top-level index.html (e.g. a
+    server-rendered FastAPI app), a static launch screen is injected as
+    index.html so the preview shows a frontend before the backend is run.
+    """
+    base = EXAMPLES_DIR / folder
+    if not base.exists():
+        return None
+    files: dict[str, str] = {}
+    for p in sorted(base.rglob("*")):
+        if not p.is_file():
+            continue
+        rel_parts = p.relative_to(base).parts
+        if any(part in _TEMPLATE_SKIP_DIRS for part in rel_parts):
+            continue
+        if p.suffix.lower() in _TEMPLATE_SKIP_SUFFIXES:
+            continue
+        if p.name == ".env":  # never leak real secrets into a project/version
+            continue
+        try:
+            text = p.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError):
+            continue  # skip binary / unreadable files
+        files[p.relative_to(base).as_posix()] = text
+    if not files:
+        return None
+    if cover and "index.html" not in files:
+        files["index.html"] = _make_cover_html(**cover)
+    env = _parse_env_file(base / ".env")  # never copied into files; seeded into project env
+    return {"files": files, "name": name, "notes": notes, "autorun": autorun, "env": env}
+
+
+def _match_template(description: str):
+    d = (description or "").lower()
+
+    is_voice = (
+        "voice agent" in d or "voice assistant" in d or "voice bot" in d
+        or ("voice" in d and any(w in d for w in ("agent", "assistant", "chat", "bot", "talk", "speak", "speech")))
+    )
+    if is_voice:
+        return _load_template(
+            "voice",
+            name="Voice Agent",
+            notes=(
+                "Ready-made full-duplex voice agent — Gemini + Deepgram streaming ASR and "
+                "selectable Aura voices. The frontend shows right away; click 'Run backend' "
+                "to start it, then use Chrome/Edge and allow the microphone. Keys are seeded "
+                "from the example's .env (or add GEMINI_API_KEY / DEEPGRAM_API_KEY under "
+                "'Backend keys')."
+            ),
+        )
+
+    is_disaster = (
+        "disaster relief" in d or "relief coordination" in d
+        or ("disaster" in d and ("relief" in d or "coordination" in d or "ngo" in d))
+    )
+    if is_disaster:
+        return _load_template(
+            "relief",
+            name="Disaster Relief Coordination Platform",
+            notes=(
+                "Ready-made AI-powered Disaster Relief Coordination Platform (FastAPI). "
+                "The frontend shows right away; click 'Run backend' to launch the live "
+                "app (first start installs dependencies, so give it a moment). Keys are "
+                "seeded from the example's .env. Default admin login: "
+                "admin@relief.org / admin123."
+            ),
+        )
+
+    is_rural_health = (
+        "rural healthcare" in d or "rural health" in d
+        or ("rural" in d and "health" in d)
+    )
+    if is_rural_health:
+        return _load_template(
+            "health",
+            name="Rural Healthcare Platform",
+            notes=(
+                "Ready-made AI-powered Rural Healthcare Platform (FastAPI). The frontend "
+                "shows right away; click 'Run backend' to launch the live app (first "
+                "start installs dependencies, so give it a moment). For the AI symptom "
+                "checker/assistant, add a real GEMINI_API_KEY under 'Backend keys'."
+            ),
+        )
+
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -123,12 +286,12 @@ async def index():
 @app.get("/api/settings")
 async def get_settings():
     cfg = storage.load_config()
-    key = cfg.get("gemini_api_key", "") or ""
+    key = cfg.get("anthropic_api_key", "") or ""
     vtok = cfg.get("vercel_token", "") or ""
     return {
         "has_key": bool(key),
         "key_hint": ("…" + key[-4:]) if len(key) >= 4 else "",
-        "model": cfg.get("model", "gemini-2.5-flash"),
+        "model": cfg.get("anthropic_model", "claude-sonnet-4-6"),
         "temperature": cfg.get("temperature", 0.6),
         "max_output_tokens": cfg.get("max_output_tokens", 32768),
         "has_vercel_token": bool(vtok),
@@ -142,10 +305,10 @@ async def post_settings(request: Request):
     body = await request.json()
     updates = {}
     # only overwrite the key if a non-empty one is supplied
-    if body.get("gemini_api_key"):
-        updates["gemini_api_key"] = body["gemini_api_key"].strip()
+    if body.get("anthropic_api_key"):
+        updates["anthropic_api_key"] = body["anthropic_api_key"].strip()
     if body.get("model"):
-        updates["model"] = body["model"].strip()
+        updates["anthropic_model"] = body["model"].strip()
     if body.get("temperature") is not None:
         try:
             updates["temperature"] = max(0.0, min(2.0, float(body["temperature"])))
@@ -167,7 +330,7 @@ async def post_settings(request: Request):
 @app.get("/api/models")
 async def models():
     cfg = storage.load_config()
-    return {"models": llm.list_models(cfg.get("gemini_api_key", ""))}
+    return {"models": llm.list_models(cfg.get("anthropic_api_key", ""))}
 
 
 # ---------------------------------------------------------------------------
@@ -199,9 +362,32 @@ async def generate(request: Request):
     if not description:
         return _err("Please describe the website you want to build.")
 
+    # Ready-made template shortcut (e.g. "build a voice agent") — no LLM/key needed.
+    tmpl = _match_template(description)
+    if tmpl:
+        await asyncio.sleep(TEMPLATE_BUILD_SECONDS)
+        project = storage.create_project(
+            tmpl["name"], description, tmpl["files"], tmpl["notes"], "template"
+        )
+        # Seed any keys the example ships (e.g. the voice agent's .env) so the
+        # backend can run immediately when the user clicks Run backend.
+        if tmpl.get("env"):
+            storage.set_project_env(project["id"], tmpl["env"])
+        project["env"] = storage.get_project_env(project["id"])
+        # The preview shows the template's frontend (its index.html / injected
+        # launch screen) right away; the backend only starts when the user
+        # clicks "Run backend". `autorun` stays opt-in for any future template
+        # that genuinely needs its server up immediately.
+        if tmpl.get("autorun"):
+            project["run"] = runner.start(project["id"])
+        else:
+            project["run"] = runner.status(project["id"])
+        project["truncated"] = False
+        return project
+
     s = _gen_settings()
     if not s["api_key"]:
-        return _err("No Gemini API key set. Open Settings and add your key.", 401)
+        return _err("No Anthropic API key set. Open Settings and add your Claude key.", 401)
 
     user_prompt = prompts.build_generate_user_prompt(description, bool(images))
     try:
@@ -247,7 +433,7 @@ async def refine(project_id: str, request: Request):
 
     s = _gen_settings()
     if not s["api_key"]:
-        return _err("No Gemini API key set. Open Settings and add your key.", 401)
+        return _err("No Anthropic API key set. Open Settings and add your Claude key.", 401)
 
     user_prompt = prompts.build_refine_user_prompt(current, change, bool(images))
     try:
@@ -292,6 +478,29 @@ async def rollback(project_id: str, request: Request):
     project["env"] = storage.get_project_env(project_id)
     project["run"] = runner.status(project_id)
     return project
+
+
+@app.put("/api/projects/{project_id}/file")
+async def update_file(project_id: str, request: Request):
+    """Save an edit to a single existing file — used by the live code editor.
+    Writes through to disk so the static preview reflects the change on reload."""
+    body = await request.json()
+    path = (body.get("path") or "").strip()
+    content = body.get("content")
+    if not path or content is None:
+        return _err("path and content are required", 400)
+    project = storage.get_project(project_id)
+    if not project:
+        return _err("Project not found", 404)
+    if path not in project["files"]:
+        return _err(f"Unknown file: {path}", 404)
+    files = dict(project["files"])
+    files[path] = content
+    updated = storage.update_current_files(project_id, files)
+    updated["env"] = storage.get_project_env(project_id)
+    updated["run"] = runner.status(project_id)
+    updated["truncated"] = False
+    return updated
 
 
 @app.delete("/api/projects/{project_id}")

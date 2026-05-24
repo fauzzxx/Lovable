@@ -1,12 +1,10 @@
 """
 llm.py
 ------
-Thin, dependency-light wrapper around the Google Gemini REST API
-(generativelanguage.googleapis.com, v1beta `generateContent`).
-
-We talk to the REST endpoint directly with httpx instead of using an SDK so
-that the builder doesn't break when Google ships new SDK versions, and so we
-have full control over multimodal (text + image) input.
+Thin wrapper around the Anthropic (Claude) Messages API
+(api.anthropic.com/v1/messages). Talks to the REST endpoint directly with httpx
+so the builder doesn't depend on an SDK version, and so we have full control over
+multimodal (text + image) input.
 
 The public entry point is `generate_text()`.
 """
@@ -18,11 +16,12 @@ from dataclasses import dataclass
 
 import httpx
 
-GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta"
+ANTHROPIC_API = "https://api.anthropic.com/v1"
+ANTHROPIC_VERSION = "2023-06-01"
 
 
 class LLMError(Exception):
-    """Raised when the Gemini call fails in a way the user should see."""
+    """Raised when the Claude call fails in a way the user should see."""
 
     def __init__(self, message: str, *, status: int | None = None, retriable: bool = False):
         super().__init__(message)
@@ -40,25 +39,28 @@ class LLMResult:
     usage: dict | None = None
 
 
-def _build_parts(prompt: str, images: list[dict] | None) -> list[dict]:
+def _build_content(prompt: str, images: list[dict] | None) -> list[dict]:
     """
     images: list of {"mime_type": "image/png", "data": "<base64 string>"}
-    The text part goes first, then any images.
+    Anthropic recommends images before the text instruction.
     """
-    parts: list[dict] = [{"text": prompt}]
+    content: list[dict] = []
     for img in images or []:
         data = img.get("data")
         if not data:
             continue
-        parts.append(
+        content.append(
             {
-                "inline_data": {
-                    "mime_type": img.get("mime_type", "image/png"),
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": img.get("mime_type", "image/png"),
                     "data": data,
-                }
+                },
             }
         )
-    return parts
+    content.append({"type": "text", "text": prompt})
+    return content
 
 
 def generate_text(
@@ -69,55 +71,52 @@ def generate_text(
     system_instruction: str | None = None,
     images: list[dict] | None = None,
     temperature: float = 0.6,
-    max_output_tokens: int = 32768,
+    max_output_tokens: int = 16000,
     timeout: float = 240.0,
 ) -> LLMResult:
     """
-    Call Gemini and return the generated text.
+    Call Claude and return the generated text.
 
     Raises LLMError with a friendly message on auth / quota / model errors.
     """
     if not api_key:
         raise LLMError(
-            "No Gemini API key configured. Open Settings and paste your key "
-            "from https://aistudio.google.com/apikey",
+            "No Anthropic API key configured. Open Settings and paste your key "
+            "from console.anthropic.com/settings/keys",
             status=401,
         )
     if not model:
-        raise LLMError("No model configured. Set one in Settings (e.g. gemini-2.5-flash).")
+        raise LLMError("No model configured. Set one in Settings (e.g. claude-sonnet-4-6).")
 
-    url = f"{GEMINI_BASE}/models/{model}:generateContent"
+    # Anthropic requires max_tokens; clamp to a safe ceiling so we never 400 on it.
+    max_tokens = max(256, min(int(max_output_tokens or 16000), 32000))
 
     body: dict = {
-        "contents": [
-            {
-                "role": "user",
-                "parts": _build_parts(prompt, images),
-            }
-        ],
-        "generationConfig": {
-            "temperature": temperature,
-            "maxOutputTokens": max_output_tokens,
-            # Plain text out — we parse our own file delimiters from it.
-            "responseMimeType": "text/plain",
-        },
+        "model": model,
+        "max_tokens": max_tokens,
+        "temperature": temperature,
+        "messages": [{"role": "user", "content": _build_content(prompt, images)}],
     }
     if system_instruction:
-        body["systemInstruction"] = {"parts": [{"text": system_instruction}]}
+        body["system"] = system_instruction
 
-    headers = {"Content-Type": "application/json", "x-goog-api-key": api_key}
+    headers = {
+        "x-api-key": api_key,
+        "anthropic-version": ANTHROPIC_VERSION,
+        "content-type": "application/json",
+    }
 
     try:
         with httpx.Client(timeout=timeout) as client:
-            resp = client.post(url, headers=headers, json=body)
+            resp = client.post(f"{ANTHROPIC_API}/messages", headers=headers, json=body)
     except httpx.TimeoutException as e:
         raise LLMError(
-            f"Gemini request timed out after {int(timeout)}s. Try a smaller "
-            f"prompt or a faster model.",
+            f"Claude request timed out after {int(timeout)}s. Try a smaller prompt "
+            f"or a faster model (e.g. claude-haiku-4-5-20251001).",
             retriable=True,
         ) from e
     except httpx.HTTPError as e:
-        raise LLMError(f"Network error talking to Gemini: {e}", retriable=True) from e
+        raise LLMError(f"Network error talking to Claude: {e}", retriable=True) from e
 
     if resp.status_code != 200:
         raise _error_from_response(resp, model)
@@ -125,7 +124,7 @@ def generate_text(
     try:
         data = resp.json()
     except json.JSONDecodeError as e:
-        raise LLMError(f"Gemini returned a non-JSON response: {resp.text[:300]}") from e
+        raise LLMError(f"Claude returned a non-JSON response: {resp.text[:300]}") from e
 
     return _parse_success(data, model)
 
@@ -134,98 +133,79 @@ def _error_from_response(resp: httpx.Response, model: str) -> LLMError:
     status = resp.status_code
     detail = ""
     try:
-        j = resp.json()
-        detail = (j.get("error") or {}).get("message", "") or ""
+        detail = (resp.json().get("error") or {}).get("message", "") or ""
     except Exception:
         detail = resp.text[:300]
 
-    if status in (401, 403):
+    if status == 401:
         return LLMError(
-            "Gemini rejected your API key (401/403). Double-check the key in "
-            f"Settings. Details: {detail}",
+            "Anthropic rejected your API key (401). Check the key in Settings "
+            f"(console.anthropic.com/settings/keys). Details: {detail}",
             status=status,
         )
+    if status == 403:
+        return LLMError(f"Anthropic denied the request (403). Details: {detail}", status=status)
     if status == 404:
         return LLMError(
-            f"Model '{model}' was not found (404). Change the model name in "
-            f"Settings — e.g. gemini-2.5-flash or gemini-2.5-flash-lite. "
+            f"Model '{model}' was not found (404). Set a valid model in Settings — "
+            f"e.g. claude-sonnet-4-6, claude-opus-4-6, or claude-haiku-4-5-20251001. "
+            f"Details: {detail}",
+            status=status,
+        )
+    if status == 400:
+        return LLMError(
+            f"Claude rejected the request (400). Often the model name or a parameter. "
             f"Details: {detail}",
             status=status,
         )
     if status == 429:
         return LLMError(
-            "Gemini rate limit / quota hit (429). Wait a moment and retry, or "
-            f"use a model with a higher quota. Details: {detail}",
+            "Claude rate limit / quota hit (429). Wait a moment and retry, or check "
+            f"your credit balance at console.anthropic.com/settings/billing. Details: {detail}",
             status=status,
             retriable=True,
         )
-    if status >= 500:
+    if status in (500, 529):
         return LLMError(
-            f"Gemini server error ({status}). This is usually temporary — retry. "
-            f"Details: {detail}",
+            f"Claude is temporarily overloaded ({status}). Retry in a moment. Details: {detail}",
             status=status,
             retriable=True,
         )
-    return LLMError(f"Gemini error {status}: {detail}", status=status)
+    return LLMError(f"Claude error {status}: {detail}", status=status)
 
 
 def _parse_success(data: dict, model: str) -> LLMResult:
-    candidates = data.get("candidates") or []
-    if not candidates:
-        # Often means the prompt was blocked by safety filters.
-        feedback = data.get("promptFeedback") or {}
-        block = feedback.get("blockReason")
-        if block:
-            raise LLMError(
-                f"Gemini blocked the request (reason: {block}). Try rephrasing "
-                f"your prompt."
-            )
-        raise LLMError("Gemini returned no candidates. Try again or rephrase.")
-
-    cand = candidates[0]
-    finish = cand.get("finishReason")
-    content = cand.get("content") or {}
-    parts = content.get("parts") or []
-    text = "".join(p.get("text", "") for p in parts).strip()
+    blocks = data.get("content") or []
+    text = "".join(b.get("text", "") for b in blocks if b.get("type") == "text").strip()
+    stop = data.get("stop_reason")
 
     if not text:
-        if finish == "MAX_TOKENS":
+        if stop == "max_tokens":
             raise LLMError(
-                "Gemini hit the output token limit before producing any text. "
+                "Claude hit the output token limit before producing any text. "
                 "Increase 'Max output tokens' in Settings."
             )
-        if finish in ("SAFETY", "RECITATION"):
-            raise LLMError(
-                f"Gemini stopped early (reason: {finish}). Try rephrasing your prompt."
-            )
-        raise LLMError("Gemini returned an empty response. Try again.")
+        raise LLMError("Claude returned an empty response. Try again.")
 
     return LLMResult(
         text=text,
-        model=model,
-        finish_reason=finish,
-        truncated=(finish == "MAX_TOKENS"),
-        usage=data.get("usageMetadata"),
+        model=data.get("model", model),
+        finish_reason=stop,
+        truncated=(stop == "max_tokens"),
+        usage=data.get("usage"),
     )
 
 
 def list_models(api_key: str, timeout: float = 30.0) -> list[str]:
-    """Best-effort list of models that support generateContent (for the UI)."""
+    """Best-effort list of available Claude models (for the UI)."""
     if not api_key:
         return []
-    url = f"{GEMINI_BASE}/models"
-    headers = {"x-goog-api-key": api_key}
+    headers = {"x-api-key": api_key, "anthropic-version": ANTHROPIC_VERSION}
     try:
         with httpx.Client(timeout=timeout) as client:
-            resp = client.get(url, headers=headers)
+            resp = client.get(f"{ANTHROPIC_API}/models?limit=100", headers=headers)
         if resp.status_code != 200:
             return []
-        out = []
-        for m in resp.json().get("models", []):
-            methods = m.get("supportedGenerationMethods", [])
-            if "generateContent" in methods:
-                name = m.get("name", "")
-                out.append(name.split("/")[-1] if "/" in name else name)
-        return sorted(out)
+        return [m.get("id", "") for m in resp.json().get("data", []) if m.get("id")]
     except Exception:
         return []

@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Arogya Mitra — Rural Healthcare AI</title>
+<style>
+  :root {
+    --green:#0a7d4b; --green-d:#075c37; --bg:#f4f7f5; --card:#fff;
+    --red:#c0392b; --amber:#e67e22; --text:#1a1a1a; --muted:#666;
+    --border:#e3e8e5; --blue:#1f6feb;
+  }
+  *{box-sizing:border-box;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  body{margin:0;background:var(--bg);color:var(--text)}
+  header{background:linear-gradient(135deg,var(--green),var(--green-d));
+    color:#fff;padding:18px 20px;display:flex;justify-content:space-between;
+    align-items:center;flex-wrap:wrap;gap:10px}
+  header h1{margin:0;font-size:1.35rem;letter-spacing:.3px}
+  header .sub{font-size:.78rem;opacity:.9}
+  .status{display:flex;gap:8px;align-items:center;font-size:.85rem}
+  .dot{width:10px;height:10px;border-radius:50%;background:#3ee07f}
+  .dot.off{background:#ff5252}
+  select{padding:6px 10px;border-radius:8px;border:none;font-size:.9rem}
+  nav{display:flex;gap:4px;background:#fff;padding:6px;overflow-x:auto;
+    border-bottom:1px solid var(--border);position:sticky;top:0;z-index:5}
+  nav button{flex:1;min-width:110px;padding:10px 8px;border:0;background:transparent;
+    border-radius:10px;font-weight:600;font-size:.85rem;cursor:pointer;color:#444}
+  nav button.active{background:var(--green);color:#fff}
+  main{padding:14px;max-width:780px;margin:0 auto}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;
+    padding:16px;margin-bottom:14px;box-shadow:0 1px 3px rgba(0,0,0,.04)}
+  .card h2{margin:0 0 10px;font-size:1.05rem;color:var(--green-d)}
+  .row{display:flex;gap:8px;flex-wrap:wrap}
+  input,textarea,button{font-size:.95rem}
+  input,textarea,select.full{width:100%;padding:10px;border:1px solid var(--border);
+    border-radius:8px;margin-bottom:8px;background:#fff}
+  textarea{min-height:80px;resize:vertical}
+  button.primary{background:var(--green);color:#fff;border:0;padding:11px 16px;
+    border-radius:10px;font-weight:600;cursor:pointer}
+  button.primary:hover{background:var(--green-d)}
+  button.danger{background:var(--red);color:#fff;border:0;padding:14px 20px;
+    border-radius:10px;font-weight:700;font-size:1.05rem;width:100%;cursor:pointer}
+  button.danger:hover{filter:brightness(1.1)}
+  .chat{height:340px;overflow-y:auto;padding:8px;background:#fafdfb;
+    border:1px solid var(--border);border-radius:10px;margin-bottom:10px}
+  .msg{padding:8px 12px;border-radius:14px;margin:6px 0;max-width:85%;
+    line-height:1.4;white-space:pre-wrap;font-size:.92rem}
+  .msg.u{background:#dcf5e7;margin-left:auto;border-bottom-right-radius:3px}
+  .msg.b{background:#fff;border:1px solid var(--border);border-bottom-left-radius:3px}
+  .pill{display:inline-block;padding:3px 9px;border-radius:99px;font-size:.72rem;
+    font-weight:600;letter-spacing:.3px}
+  .pill.ok{background:#d6f4e2;color:#0a6537}
+  .pill.low{background:#fde2cf;color:#a94a00}
+  .pill.zero{background:#fcd5cf;color:#8b1a0d}
+  .med{display:flex;justify-content:space-between;align-items:center;
+    padding:10px;border-bottom:1px solid var(--border)}
+  .med:last-child{border:0}
+  .med b{display:block;font-size:.95rem}
+  .med small{color:var(--muted)}
+  .doc{padding:12px;border:1px solid var(--border);border-radius:10px;margin-bottom:10px}
+  .doc h3{margin:0 0 4px;font-size:1rem}
+  .doc small{color:var(--muted)}
+  .slots{margin-top:8px;display:flex;flex-wrap:wrap;gap:6px}
+  .slot-btn{padding:6px 12px;border:1px solid var(--green);background:#fff;
+    color:var(--green-d);border-radius:99px;font-size:.82rem;cursor:pointer}
+  .slot-btn.sel{background:var(--green);color:#fff}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+    background:#222;color:#fff;padding:12px 18px;border-radius:10px;
+    font-size:.9rem;z-index:99;opacity:0;transition:.3s;pointer-events:none}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(-6px)}
+  .alert-box{background:#fff3cd;border:1px solid #ffe18a;color:#664d03;
+    padding:10px 12px;border-radius:10px;margin-bottom:10px;font-size:.85rem}
+  .sos-banner{background:#fff5f4;border:2px dashed var(--red);padding:14px;
+    border-radius:12px;text-align:center;margin-bottom:12px}
+  .sos-banner b{color:var(--red);font-size:1.1rem}
+  .mode-toggle{display:flex;gap:0;margin-bottom:10px;border:1px solid var(--border);
+    border-radius:10px;overflow:hidden;width:fit-content}
+  .mode-toggle button{padding:7px 14px;border:0;background:#fff;cursor:pointer;font-size:.85rem}
+  .mode-toggle button.on{background:var(--green);color:#fff}
+  hr{border:0;border-top:1px solid var(--border);margin:14px 0}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  @media(max-width:480px){.grid2{grid-template-columns:1fr}}
+  footer{text-align:center;color:var(--muted);font-size:.75rem;padding:14px}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>🏥 Arogya Mitra</h1>
+    <div class="sub">AI Healthcare for Rural India · powered by Gemini 2.5</div>
+  </div>
+  <div class="status">
+    <span class="dot" id="netDot"></span>
+    <span id="netText">Online</span>
+    <select id="lang" title="Language">
+      <option>English</option><option>Hindi</option><option>Bengali</option>
+      <option>Tamil</option><option>Telugu</option><option>Marathi</option>
+      <option>Gujarati</option><option>Kannada</option><option>Punjabi</option>
+      <option>Odia</option>
+    </select>
+  </div>
+</header>
+
+<nav id="nav">
+  <button data-tab="assistant" class="active">💬 Assistant</button>
+  <button data-tab="symptom">🩺 Symptoms</button>
+  <button data-tab="meds">💊 Medicines</button>
+  <button data-tab="doctor">👨‍⚕️ Doctor</button>
+  <button data-tab="sos">🚨 SOS</button>
+</nav>
+
+<main>
+
+<!-- ASSISTANT -->
+<section id="tab-assistant" class="tab">
+  <div class="card">
+    <h2>Multilingual Health Assistant</h2>
+    <div class="chat" id="chat"></div>
+    <div class="row">
+      <input id="chatInput" placeholder="Ask a health question..." style="flex:1;margin:0"/>
+      <button class="primary" onclick="sendChat()">Send</button>
+    </div>
+  </div>
+</section>
+
+<!-- SYMPTOM -->
+<section id="tab-symptom" class="tab" hidden>
+  <div class="card">
+    <h2>AI Symptom Checker</h2>
+    <p style="margin:0 0 8px;color:var(--muted);font-size:.85rem">
+      Describe your symptoms. AI gives guidance — not a diagnosis.</p>
+    <textarea id="symInput" placeholder="e.g. fever for 2 days, headache, body pain..."></textarea>
+    <button class="primary" onclick="checkSymptoms()">Check Symptoms</button>
+    <div id="symResult" style="margin-top:12px"></div>
+  </div>
+</section>
+
+<!-- MEDICINES -->
+<section id="tab-meds" class="tab" hidden>
+  <div class="card">
+    <h2>Medicine Availability</h2>
+    <input id="medSearch" placeholder="Search medicine..." oninput="loadMeds()"/>
+    <div id="medList"></div>
+  </div>
+</section>
+
+<!-- DOCTOR -->
+<section id="tab-doctor" class="tab" hidden>
+  <div class="card">
+    <h2>Book a Doctor</h2>
+    <div id="docList"></div>
+    <hr/>
+    <div id="bookForm" hidden>
+      <h3 style="margin:0 0 8px">Booking: <span id="selDoc"></span></h3>
+      <div class="grid2">
+        <input id="bName" placeholder="Patient name"/>
+        <input id="bPhone" placeholder="Phone number"/>
+      </div>
+      <input id="bVillage" placeholder="Village / Address"/>
+      <textarea id="bNotes" placeholder="Reason for visit (optional)"></textarea>
+      <button class="primary" onclick="confirmBooking()">Confirm Booking</button>
+    </div>
+  </div>
+</section>
+
+<!-- SOS -->
+<section id="tab-sos" class="tab" hidden>
+  <div class="card">
+    <div class="sos-banner">
+      <b>EMERGENCY?</b><br/>
+      <small>Call <b>108</b> directly. Use this form to alert local PHC + ASHA worker.</small>
+    </div>
+    <input id="eName" placeholder="Your name"/>
+    <input id="ePhone" placeholder="Phone number"/>
+    <input id="eLoc" placeholder="Village / landmark"/>
+    <textarea id="eDesc" placeholder="What happened? (e.g. accident, chest pain, snake bite)"></textarea>
+    <button class="danger" onclick="sendSOS()">🚨 SEND EMERGENCY ALERT</button>
+    <div id="eResult" style="margin-top:10px"></div>
+  </div>
+</section>
+
+</main>
+
+<div class="toast" id="toast"></div>
+<footer>Offline-first · Works in low connectivity · v1.0</footer>
+
+<script>
+// ---------- Offline-first setup ----------
+const CACHE_KEY = "arogya_cache_v1";
+const cache = JSON.parse(localStorage.getItem(CACHE_KEY) || "{}");
+function saveCache(){ localStorage.setItem(CACHE_KEY, JSON.stringify(cache)); }
+
+let online = navigator.onLine;
+function updateNet(){
+  online = navigator.onLine;
+  document.getElementById("netDot").classList.toggle("off", !online);
+  document.getElementById("netText").textContent = online ? "Online" : "Offline";
+}
+addEventListener("online", updateNet); addEventListener("offline", updateNet); updateNet();
+
+function toast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"), 2800);
+}
+
+// Tabs
+document.querySelectorAll("nav button").forEach(b=>{
+  b.onclick = ()=>{
+    document.querySelectorAll("nav button").forEach(x=>x.classList.remove("active"));
+    b.classList.add("active");
+    document.querySelectorAll(".tab").forEach(t=>t.hidden=true);
+    document.getElementById("tab-"+b.dataset.tab).hidden=false;
+    if(b.dataset.tab==="meds") loadMeds();
+    if(b.dataset.tab==="doctor") loadDoctors();
+  };
+});
+
+// ---------- Chat assistant ----------
+const chatBox = document.getElementById("chat");
+function addMsg(text, cls){
+  const d = document.createElement("div");
+  d.className = "msg " + cls;
+  d.textContent = text;
+  chatBox.appendChild(d);
+  chatBox.scrollTop = chatBox.scrollHeight;
+}
+addMsg("Namaste! I am your AI health helper. Ask me anything about health, medicines, or first aid.", "b");
+
+async function sendChat(){
+  const inp = document.getElementById("chatInput");
+  const msg = inp.value.trim(); if(!msg) return;
+  addMsg(msg, "u"); inp.value="";
+  const lang = document.getElementById("lang").value;
+  addMsg("...thinking", "b");
+  const last = chatBox.lastChild;
+  try{
+    const r = await fetch("/api/chat", {
+      method:"POST", headers:{"content-type":"application/json"},
+      body: JSON.stringify({message:msg, language:lang, mode:"assistant"})
+    });
+    const data = await r.json();
+    last.textContent = data.reply;
+    if(!data.offline){
+      cache["chat_"+msg.toLowerCase().slice(0,40)] = data.reply; saveCache();
+    }
+  }catch(e){
+    const fallback = cache["chat_"+msg.toLowerCase().slice(0,40)]
+      || offlineAdvice(msg);
+    last.textContent = "[Offline] " + fallback;
+  }
+}
+document.getElementById("chatInput").addEventListener("keydown", e=>{
+  if(e.key==="Enter") sendChat();
+});
+
+function offlineAdvice(q){
+  const m = q.toLowerCase();
+  if(m.includes("fever")) return "Drink ORS, rest, paracetamol 500mg every 6 hrs. If >3 days or >102°F, visit PHC.";
+  if(m.includes("diarr")||m.includes("loose")) return "Give ORS after every loose motion. Avoid milk. If blood, vomiting, or child <2 yrs — go to PHC.";
+  if(m.includes("cough")) return "Warm water with honey + ginger. If >2 weeks or blood in cough, visit PHC for TB check.";
+  if(m.includes("snake")) return "EMERGENCY. Do NOT cut or suck wound. Keep limb still & below heart. Call 108. Go to nearest hospital with anti-venom.";
+  if(m.includes("burn")) return "Cool with running water 15 min. Do NOT apply oil/toothpaste. Cover with clean cloth.";
+  return "I cannot reach the AI right now. For any serious symptom, please call 108 or visit your nearest PHC.";
+}
+
+// ---------- Symptom checker ----------
+async function checkSymptoms(){
+  const txt = document.getElementById("symInput").value.trim();
+  if(!txt){ toast("Please describe your symptoms"); return; }
+  const lang = document.getElementById("lang").value;
+  const out = document.getElementById("symResult");
+  out.innerHTML = "<div class='msg b'>Analyzing...</div>";
+  try{
+    const r = await fetch("/api/chat", {
+      method:"POST", headers:{"content-type":"application/json"},
+      body: JSON.stringify({message:txt, language:lang, mode:"symptom"})
+    });
+    const data = await r.json();
+    out.innerHTML = "<div class='msg b'>" +
+      data.reply.replace(/</g,"&lt;") + "</div>";
+    if(/EMERGENCY/i.test(data.reply)){
+      out.innerHTML += "<div class='alert-box'>⚠️ This looks urgent. Tap the 🚨 SOS tab to alert emergency services.</div>";
+    }
+  }catch(e){
+    out.innerHTML = "<div class='msg b'>[Offline] " + offlineAdvice(txt) + "</div>";
+  }
+}
+
+// ---------- Medicines ----------
+async function loadMeds(){
+  const q = document.getElementById("medSearch").value;
+  const list = document.getElementById("medList");
+  try{
+    const r = await fetch("/api/medicines" + (q?`?q=${encodeURIComponent(q)}`:""));
+    const meds = await r.json();
+    cache.meds = meds; saveCache();
+    renderMeds(meds);
+  }catch(e){
+    renderMeds((cache.meds||[]).filter(m=>!q||m.name.toLowerCase().includes(q.toLowerCase())));
+  }
+}
+function renderMeds(meds){
+  const list = document.getElementById("medList");
+  if(!meds.length){ list.innerHTML = "<p style='color:#666'>No medicines found.</p>"; return; }
+  list.innerHTML = meds.map(m=>{
+    const pill = m.stock===0 ? `<span class="pill zero">OUT OF STOCK</span>`
+      : m.stock<30 ? `<span class="pill low">LOW · ${m.stock}</span>`
+      : `<span class="pill ok">IN STOCK · ${m.stock}</span>`;
+    return `<div class="med">
+      <div><b>${m.name}</b><small>${m.pharmacy} · ₹${m.price}</small></div>
+      ${pill}
+    </div>`;
+  }).join("");
+}
+
+// ---------- Doctors ----------
+let selectedDoc = null, selectedSlot = null;
+async function loadDoctors(){
+  try{
+    const r = await fetch("/api/doctors");
+    const docs = await r.json();
+    cache.docs = docs; saveCache();
+    renderDocs(docs);
+  }catch(e){ renderDocs(cache.docs||[]); }
+}
+function renderDocs(docs){
+  document.getElementById("docList").innerHTML = docs.map(d=>`
+    <div class="doc">
+      <h3>${d.name}</h3>
+      <small>${d.specialty} · ${d.village}</small>
+      <div class="slots">
+        ${d.slots.map(s=>`<button class="slot-btn" onclick="pickSlot('${d.id}','${d.name}','${s}',this)">${s}</button>`).join("")}
+      </div>
+    </div>
+  `).join("");
+}
+function pickSlot(id, name, slot, btn){
+  selectedDoc = id; selectedSlot = slot;
+  document.querySelectorAll(".slot-btn").forEach(b=>b.classList.remove("sel"));
+  btn.classList.add("sel");
+  document.getElementById("selDoc").textContent = `${name} — ${slot}`;
+  document.getElementById("bookForm").hidden = false;
+}
+async function confirmBooking(){
+  if(!selectedDoc){ toast("Pick a doctor & slot first"); return; }
+  const body = {
+    doctor_id: selectedDoc, slot: selectedSlot,
+    patient_name: document.getElementById("bName").value.trim(),
+    phone: document.getElementById("bPhone").value.trim(),
+    village: document.getElementById("bVillage").value.trim(),
+    notes: document.getElementById("bNotes").value.trim(),
+  };
+  if(!body.patient_name||!body.phone){ toast("Name and phone required"); return; }
+  try{
+    const r = await fetch("/api/book", {method:"POST",
+      headers:{"content-type":"application/json"}, body: JSON.stringify(body)});
+    const data = await r.json();
+    toast("✅ Booked! ID: " + data.booking.id);
+    document.getElementById("bookForm").hidden = true;
+    selectedDoc=null;
+  }catch(e){
+    const pend = JSON.parse(localStorage.getItem("pending_bookings")||"[]");
+    pend.push({...body, queued: new Date().toISOString()});
+    localStorage.setItem("pending_bookings", JSON.stringify(pend));
+    toast("📡 Saved offline. Will sync when online.");
+    document.getElementById("bookForm").hidden = true;
+  }
+}
+
+// ---------- Emergency ----------
+async function sendSOS(){
+  const body = {
+    name: document.getElementById("eName").value.trim() || "Unknown",
+    phone: document.getElementById("ePhone").value.trim() || "N/A",
+    location: document.getElementById("eLoc").value.trim() || "Unknown",
+    description: document.getElementById("eDesc").value.trim() || "Emergency",
+  };
+  const out = document.getElementById("eResult");
+  try{
+    const r = await fetch("/api/emergency", {method:"POST",
+      headers:{"content-type":"application/json"}, body: JSON.stringify(body)});
+    const data = await r.json();
+    out.innerHTML = `<div class="alert-box" style="background:#d6f4e2;border-color:#0a6537;color:#0a6537">
+      ✅ <b>${data.message}</b><br/>Alert ID: ${data.alert.id} · Status: ${data.alert.status}<br/>
+      📞 Ambulance (108) notified. Local PHC has been alerted.</div>`;
+  }catch(e){
+    const pend = JSON.parse(localStorage.getItem("pending_sos")||"[]");
+    pend.push({...body, queued: new Date().toISOString()});
+    localStorage.setItem("pending_sos", JSON.stringify(pend));
+    out.innerHTML = `<div class="alert-box">📡 No network. Alert saved offline and will send when reconnected. <b>Please dial 108 directly NOW.</b></div>`;
+  }
+}
+
+// Try to flush queued offline data when back online
+addEventListener("online", async ()=>{
+  const sos = JSON.parse(localStorage.getItem("pending_sos")||"[]");
+  for(const s of sos){
+    try{ await fetch("/api/emergency",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(s)}); }catch{}
+  }
+  localStorage.removeItem("pending_sos");
+  const bk = JSON.parse(localStorage.getItem("pending_bookings")||"[]");
+  for(const b of bk){
+    try{ await fetch("/api/book",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(b)}); }catch{}
+  }
+  localStorage.removeItem("pending_bookings");
+  if(sos.length||bk.length) toast(`✅ Synced ${sos.length+bk.length} offline items`);
+});
+
+// Preload caches
+loadMeds(); loadDoctors();
+</script>
+</body>
+</html>

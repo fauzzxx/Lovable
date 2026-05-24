@@ -171,6 +171,30 @@ def add_version(
     return get_project(project_id)
 
 
+def update_current_files(project_id: str, files: dict[str, str]) -> dict:
+    """Overwrite the latest version's files in place and rewrite them to disk.
+
+    Used for live in-editor edits — we update the current version rather than
+    spawning a new version on every keystroke. Returns the refreshed project.
+    """
+    ts = _now()
+    with _conn() as conn:
+        row = conn.execute(
+            "SELECT MAX(version_num) AS n FROM versions WHERE project_id = ?",
+            (project_id,),
+        ).fetchone()
+        n = row["n"] if row else None
+        if n is None:
+            raise KeyError(f"no versions for project {project_id}")
+        conn.execute(
+            "UPDATE versions SET files = ? WHERE project_id = ? AND version_num = ?",
+            (json.dumps(files), project_id, n),
+        )
+        conn.execute("UPDATE projects SET updated_at = ? WHERE id = ?", (ts, project_id))
+    _write_files_to_disk(project_id, files)
+    return get_project(project_id)
+
+
 def rollback_to_version(project_id: str, version_num: int) -> dict:
     """Make an old version current by copying it forward as a new version."""
     target = get_version(project_id, version_num)
@@ -271,8 +295,12 @@ def delete_project(project_id: str) -> None:
 # ---------------------------------------------------------------------------
 
 _DEFAULT_CONFIG = {
+    # Builder generation engine = Anthropic Claude
+    "anthropic_api_key": "",
+    "anthropic_model": "claude-sonnet-4-6",
+    # gemini_api_key / model are kept for the (separate) voice agents
     "gemini_api_key": "",
-    "model": "gemini-3.1-flash-lite",
+    "model": "gemini-2.5-flash-lite",
     "temperature": 0.6,
     "max_output_tokens": 32768,
     # Vercel deployment
@@ -302,6 +330,7 @@ def load_config() -> dict:
 def save_config(updates: dict) -> dict:
     cfg = load_config()
     for k in (
+        "anthropic_api_key", "anthropic_model",
         "gemini_api_key", "model", "temperature", "max_output_tokens",
         "vercel_token", "vercel_team_id",
     ):

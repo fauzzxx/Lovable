@@ -1,0 +1,12 @@
+[
+  {
+    "id": "EM1779591389",
+    "name": "Test",
+    "phone": "9999",
+    "location": "Rampur",
+    "description": "smoke test",
+    "ambulance": "108",
+    "created": "2026-05-24 08:26:29",
+    "status": "DISPATCHED"
+  }
+]

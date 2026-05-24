@@ -186,7 +186,7 @@ project's `.env`. Neither is committed to git (see `.gitignore`).
 | `runner.py`     | Per-project venv + uvicorn subprocess manager (start/stop/logs)    |
 | `deploy.py`     | Vercel adaptation (static/serverless) + Vercel REST API client     |
 | `voice_agent.py`| Inbound-call agent (one-shot): phone → build → deploy → WhatsApp    |
-| `voice_realtime.py`| Full-duplex agent: real conversation (Deepgram+Gemini+ElevenLabs)|
+| `voice_realtime.py`| Full-duplex agent: real conversation (Deepgram STT+TTS + Gemini)|
 | `index.html`    | The single-page builder UI                                         |
 | `_smoketest.py` | Optional: `python _smoketest.py` — tests parser/storage/API        |
 | `_runnertest.py`| Optional: `python _runnertest.py` — end-to-end backend run test    |
@@ -298,17 +298,18 @@ and you can interrupt it (barge-in). It chats to gather your requirements — as
 to two quick clarifying questions — then builds + deploys + WhatsApps the link, exactly
 like `voice_agent.py`.
 
-**Stack:** Twilio Media Streams (live audio) · Deepgram (streaming speech-to-text) ·
-Gemini (the brain) · ElevenLabs (the voice).
+**Stack:** Twilio Media Streams (live audio) · Deepgram (streaming speech-to-text
+**and** the voice via Aura TTS) · Gemini (the brain). No ElevenLabs / paid TTS needed.
 
 ### Extra keys it needs
 
-On top of everything `voice_agent.py` uses, add to `.env`:
+On top of everything `voice_agent.py` uses, add **one** key to `.env`:
 ```
-DEEPGRAM_API_KEY=...      # console.deepgram.com  (free credit to start)
-ELEVEN_API_KEY=...        # elevenlabs.io → Profile → API key
-ELEVEN_VOICE_ID=...       # optional; pick a voice in the ElevenLabs library
+DEEPGRAM_API_KEY=...        # console.deepgram.com — free credit; does STT + TTS
+DEEPGRAM_TTS_MODEL=...      # optional; default aura-asteria-en (other Aura voices available)
 ```
+(Deepgram's Aura voices stream μ-law 8 kHz — exactly Twilio's format — so they're
+low-latency and free-tier friendly.)
 
 ### Run + expose (same idea, different port)
 
@@ -318,7 +319,7 @@ ngrok http 8002                # then set the Twilio Voice webhook to /voice/inc
 ```
 
 Open `http://localhost:8002/` for a readiness dashboard (Gemini, Vercel, Twilio,
-Deepgram, ElevenLabs, WhatsApp). Use **either** `voice_agent.py` **or**
+Deepgram, WhatsApp). Use **either** `voice_agent.py` **or**
 `voice_realtime.py` — point your Twilio number's webhook at whichever one you're running.
 
 ### What to say on the call
@@ -343,7 +344,7 @@ sentences, and pause when you're done talking so it knows it's your turn finishe
 - Needs a stable public **wss** endpoint. Free ngrok works for testing but can be flaky
   for sustained audio; for anything serious, host it (Render/Railway/Fly). It **cannot**
   run on Vercel (that's serverless — no WebSockets).
-- Three metered APIs bill per call now: Twilio minutes + Deepgram minutes + ElevenLabs
-  characters.
-- Latency matters — Deepgram → Gemini → ElevenLabs round-trips should stay snappy; a
-  fast Gemini model (e.g. `gemini-2.5-flash-lite`) helps.
+- Two metered services bill per call: Twilio minutes + Deepgram usage (STT + Aura TTS,
+  both on Deepgram's free credit to start).
+- Latency matters — Deepgram (speech) → Gemini → Deepgram (voice) round-trips should
+  stay snappy; a fast Gemini model (e.g. `gemini-2.5-flash-lite`) helps.

@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ReliefNet — Disaster Relief Coordination Platform</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'sans-serif'] },
+          colors: {
+            ink: { 950: '#07090f', 900: '#0b0f1a', 800: '#111726', 700: '#1a2235', 600: '#243049' },
+            brand: { 400: '#22d3ee', 500: '#06b6d4', 600: '#0891b2' },
+            accent: { 500: '#a855f7', 600: '#9333ea' },
+          },
+          boxShadow: { glow: '0 0 40px -10px rgba(34,211,238,0.45)' },
+        }
+      }
+    }
+  </script>
+  <style>
+    :root { color-scheme: dark; }
+    html, body { background: #07090f; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background:
+        radial-gradient(circle at 15% 10%, rgba(34,211,238,0.10), transparent 40%),
+        radial-gradient(circle at 85% 90%, rgba(168,85,247,0.12), transparent 40%),
+        #07090f;
+      color: #e6edf7;
+      min-height: 100vh;
+    }
+    .glass {
+      background: rgba(17, 23, 38, 0.6);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    .glow-border { box-shadow: 0 0 0 1px rgba(34,211,238,0.25), 0 0 30px -10px rgba(34,211,238,0.55); }
+    .gradient-text {
+      background: linear-gradient(90deg, #22d3ee 0%, #a855f7 100%);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #06b6d4, #a855f7);
+      transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
+    }
+    .btn-primary:hover { transform: translateY(-1px); filter: brightness(1.1); box-shadow: 0 10px 30px -10px rgba(168,85,247,0.6); }
+    .card-hover { transition: transform .25s ease, border-color .25s ease, box-shadow .25s ease; }
+    .card-hover:hover { transform: translateY(-3px); border-color: rgba(34,211,238,0.4); box-shadow: 0 10px 30px -15px rgba(34,211,238,0.5); }
+    .fade-in { animation: fade .5s ease both; }
+    .slide-up { animation: slideUp .45s cubic-bezier(.2,.7,.3,1.2) both; }
+    .pop { animation: pop .25s ease both; }
+    .pulse-ring {
+      box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+      animation: ring 1.6s infinite;
+    }
+    @keyframes fade { from {opacity:0} to {opacity:1} }
+    @keyframes slideUp { from {opacity:0; transform: translateY(14px)} to {opacity:1; transform:none} }
+    @keyframes pop { from {opacity:0; transform: scale(.96)} to {opacity:1; transform:none} }
+    @keyframes ring {
+      0% { box-shadow: 0 0 0 0 rgba(239,68,68,0.7); }
+      70% { box-shadow: 0 0 0 14px rgba(239,68,68,0); }
+      100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+    }
+    .scrollbar-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+    .scrollbar-thin::-webkit-scrollbar-thumb { background: #243049; border-radius: 999px; }
+    .severity-low { color:#86efac; background: rgba(34,197,94,.12); }
+    .severity-medium { color:#fde68a; background: rgba(234,179,8,.12); }
+    .severity-high { color:#fdba74; background: rgba(249,115,22,.15); }
+    .severity-critical { color:#fca5a5; background: rgba(239,68,68,.18); }
+    .status-pending { color:#fcd34d; background: rgba(234,179,8,.12); }
+    .status-in_progress { color:#7dd3fc; background: rgba(14,165,233,.15); }
+    .status-resolved { color:#86efac; background: rgba(34,197,94,.15); }
+    .chip { padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing:.02em; text-transform: uppercase; }
+    .chat-bubble-user { background: linear-gradient(135deg, #0891b2, #7e22ce); }
+    .chat-bubble-bot { background: rgba(36, 48, 73, 0.7); }
+    .typing span { display:inline-block; width:6px; height:6px; border-radius:50%; background:#94a3b8; margin:0 2px; animation: blink 1.2s infinite; }
+    .typing span:nth-child(2){animation-delay:.15s}
+    .typing span:nth-child(3){animation-delay:.3s}
+    @keyframes blink { 0%,80%,100%{opacity:.3} 40%{opacity:1} }
+    .nav-link.active { color:#22d3ee; }
+    .nav-link.active::after {
+      content:''; display:block; height:2px; width:100%; margin-top:6px;
+      background: linear-gradient(90deg,#22d3ee,#a855f7); border-radius:2px;
+    }
+    input, select, textarea {
+      background: rgba(7, 9, 15, 0.6) !important;
+      border: 1px solid rgba(255,255,255,0.08);
+      color: #e6edf7;
+    }
+    input:focus, select:focus, textarea:focus {
+      outline: none; border-color: #22d3ee;
+      box-shadow: 0 0 0 3px rgba(34,211,238,0.18);
+    }
+  </style>
+</head>
+<body class="antialiased">
+
+<!-- Toast container -->
+<div id="toasts" class="fixed top-5 right-5 z-50 flex flex-col gap-2 w-80 max-w-[90vw]"></div>
+
+<!-- NAV -->
+<nav class="sticky top-0 z-40 glass border-b border-white/5">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,#06b6d4,#a855f7)">
+        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 4 6v6c0 5 3.5 9.7 8 10 4.5-.3 8-5 8-10V6l-8-4Z"/></svg>
+      </div>
+      <div>
+        <div class="font-bold text-lg leading-none">Relief<span class="gradient-text">Net</span></div>
+        <div class="text-[11px] text-slate-400 leading-none mt-1">Disaster Coordination Platform</div>
+      </div>
+    </div>
+    <div class="hidden md:flex items-center gap-6 text-sm text-slate-300">
+      <a href="#dashboard" class="nav-link hover:text-white" data-nav>Dashboard</a>
+      <a href="#report" class="nav-link hover:text-white" data-nav>Report</a>
+      <a href="#volunteer" class="nav-link hover:text-white" data-nav>Volunteer</a>
+      <a href="#weather" class="nav-link hover:text-white" data-nav>Weather</a>
+      <a href="#admin" class="nav-link hover:text-white hidden" id="navAdmin" data-nav>Admin</a>
+    </div>
+    <div class="flex items-center gap-2">
+      <button id="bellBtn" class="relative w-9 h-9 rounded-lg glass hover:bg-white/10 flex items-center justify-center" title="Notifications">
+        <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 17h5l-1.4-1.4A2 2 0 0 1 18 14.2V11a6 6 0 0 0-5-5.9V4a1 1 0 1 0-2 0v1.1A6 6 0 0 0 6 11v3.2c0 .5-.2 1-.6 1.4L4 17h5"/><path d="M9 17a3 3 0 0 0 6 0"/></svg>
+        <span id="bellDot" class="hidden absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+      </button>
+      <div id="authButtons" class="flex items-center gap-2">
+        <button onclick="openAuth('login')" class="px-3 py-1.5 text-sm rounded-lg glass hover:bg-white/10">Sign in</button>
+        <button onclick="openAuth('register')" class="px-3 py-1.5 text-sm rounded-lg btn-primary text-white font-medium">Sign up</button>
+      </div>
+      <div id="userMenu" class="hidden items-center gap-2">
+        <div class="text-sm text-slate-300 hidden sm:block">Hi, <span id="userName" class="text-white font-medium"></span></div>
+        <button onclick="logout()" class="px-3 py-1.5 text-sm rounded-lg glass hover:bg-white/10">Logout</button>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<header class="relative overflow-hidden">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 pt-14 pb-10 sm:pt-20 sm:pb-16">
+    <div class="grid md:grid-cols-2 gap-10 items-center">
+      <div class="slide-up">
+        <span class="chip glass border border-white/10 text-cyan-300 mb-4 inline-block">AI-POWERED · REAL-TIME · 24/7</span>
+        <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold leading-tight">
+          When disaster strikes,<br/>
+          <span class="gradient-text">we connect the response.</span>
+        </h1>
+        <p class="mt-5 text-slate-300 max-w-xl">
+          ReliefNet unites citizens, volunteers, and NGOs during floods, earthquakes, and other emergencies.
+          Report incidents, dispatch help, and stay informed — all from one dark, lightning-fast dashboard.
+        </p>
+        <div class="mt-7 flex flex-wrap gap-3">
+          <a href="#report" class="btn-primary px-5 py-3 rounded-xl font-semibold text-white inline-flex items-center gap-2">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.3 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/></svg>
+            Report Emergency
+          </a>
+          <a href="#volunteer" class="px-5 py-3 rounded-xl glass hover:bg-white/10 font-semibold inline-flex items-center gap-2">
+            <svg class="w-5 h-5 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            Become a Volunteer
+          </a>
+          <button onclick="openChat()" class="px-5 py-3 rounded-xl glass hover:bg-white/10 font-semibold inline-flex items-center gap-2">
+            <svg class="w-5 h-5 text-purple-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z"/></svg>
+            Ask ReliefBot
+          </button>
+        </div>
+      </div>
+      <div class="relative pop">
+        <div class="glass rounded-3xl p-6 glow-border">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <div class="text-xs text-slate-400">LIVE OPERATIONS</div>
+              <div class="text-2xl font-bold">Affected Regions</div>
+            </div>
+            <div class="flex items-center gap-2 text-xs">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 pulse-ring"></span>
+              <span class="text-emerald-300">LIVE</span>
+            </div>
+          </div>
+          <div class="grid grid-cols-3 gap-3 text-center">
+            <div class="rounded-xl p-3 bg-white/5">
+              <div class="text-3xl font-extrabold text-cyan-300" id="heroEmerg">0</div>
+              <div class="text-[11px] uppercase tracking-wider text-slate-400 mt-1">Emergencies</div>
+            </div>
+            <div class="rounded-xl p-3 bg-white/5">
+              <div class="text-3xl font-extrabold text-purple-300" id="heroVol">0</div>
+              <div class="text-[11px] uppercase tracking-wider text-slate-400 mt-1">Volunteers</div>
+            </div>
+            <div class="rounded-xl p-3 bg-white/5">
+              <div class="text-3xl font-extrabold text-emerald-300" id="heroResolved">0</div>
+              <div class="text-[11px] uppercase tracking-wider text-slate-400 mt-1">Resolved</div>
+            </div>
+          </div>
+          <div class="mt-5">
+            <canvas id="heroChart" height="120"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- DASHBOARD -->
+<section id="dashboard" class="max-w-7xl mx-auto px-4 sm:px-6 py-10">
+  <div class="flex items-end justify-between mb-6">
+    <div>
+      <h2 class="text-2xl sm:text-3xl font-bold">Live Dashboard</h2>
+      <p class="text-slate-400 text-sm mt-1">Real-time view of relief operations.</p>
+    </div>
+    <button onclick="loadAll()" class="px-3 py-2 text-sm rounded-lg glass hover:bg-white/10">↻ Refresh</button>
+  </div>
+
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div class="glass rounded-2xl p-5 card-hover">
+      <div class="text-xs text-slate-400">Total Emergencies</div>
+      <div class="mt-2 flex items-center justify-between">
+        <div class="text-3xl font-extrabold" id="statEmerg">0</div>
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center bg-cyan-500/10 text-cyan-300">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.3 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/></svg>
+        </div>
+      </div>
+    </div>
+    <div class="glass rounded-2xl p-5 card-hover">
+      <div class="text-xs text-slate-400">Pending</div>
+      <div class="mt-2 flex items-center justify-between">
+        <div class="text-3xl font-extrabold text-amber-300" id="statPending">0</div>
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center bg-amber-400/10 text-amber-300">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </div>
+      </div>
+    </div>
+    <div class="glass rounded-2xl p-5 card-hover">
+      <div class="text-xs text-slate-400">Volunteers</div>
+      <div class="mt-2 flex items-center justify-between">
+        <div class="text-3xl font-extrabold text-purple-300" id="statVol">0</div>
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center bg-purple-400/10 text-purple-300">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        </div>
+      </div>
+    </div>
+    <div class="glass rounded-2xl p-5 card-hover">
+      <div class="text-xs text-slate-400">People Affected</div>
+      <div class="mt-2 flex items-center justify-between">
+        <div class="text-3xl font-extrabold text-rose-300" id="statPeople">0</div>
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center bg-rose-400/10 text-rose-300">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-3-3.87"/><path d="M9 21v-2a4 4 0 0 1 3-3.87"/><circle cx="12" cy="7" r="4"/></svg>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-6 grid lg:grid-cols-3 gap-4">
+    <div class="glass rounded-2xl p-5 lg:col-span-2">
+      <div class="flex items-center justify-between mb-3">
+        <div class="font-semibold">Recent Emergencies</div>
+        <div class="text-xs text-slate-400" id="emergCount">0 records</div>
+      </div>
+      <div id="emergList" class="space-y-3 max-h-[420px] overflow-auto pr-1 scrollbar-thin"></div>
+    </div>
+    <div class="glass rounded-2xl p-5">
+      <div class="font-semibold mb-3">By Type</div>
+      <canvas id="typeChart" height="180"></canvas>
+      <div class="font-semibold mt-6 mb-3">By Severity</div>
+      <canvas id="sevChart" height="160"></canvas>
+    </div>
+  </div>
+</section>
+
+<!-- REPORT + VOLUNTEER -->
+<section class="max-w-7xl mx-auto px-4 sm:px-6 py-10">
+  <div class="grid lg:grid-cols-2 gap-6">
+    <div id="report" class="glass rounded-2xl p-6 card-hover">
+      <div class="flex items-center gap-3 mb-1">
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center bg-rose-500/15 text-rose-300">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.3 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/></svg>
+        </div>
+        <div>
+          <h3 class="text-xl font-bold">Report an Emergency</h3>
+          <p class="text-slate-400 text-sm">If this is life-threatening, contact local emergency services first.</p>
+        </div>
+      </div>
+      <form id="emergencyForm" class="mt-4 grid sm:grid-cols-2 gap-3">
+        <select name="type" required class="rounded-lg px-3 py-2.5 text-sm">
+          <option value="">Disaster type *</option>
+          <option>Flood</option><option>Earthquake</option><option>Fire</option>
+          <option>Cyclone</option><option>Landslide</option><option>Medical</option><option>Other</option>
+        </select>
+        <select name="severity" required class="rounded-lg px-3 py-2.5 text-sm">
+          <option value="">Severity *</option>
+          <option value="low">Low</option><option value="medium">Medium</option>
+          <option value="high">High</option><option value="critical">Critical</option>
+        </select>
+        <input name="location" required placeholder="Location (city, area) *" class="rounded-lg px-3 py-2.5 text-sm sm:col-span-2"/>
+        <textarea name="description" required rows="3" placeholder="What's happening? *" class="rounded-lg px-3 py-2.5 text-sm sm:col-span-2"></textarea>
+        <input name="reporter_name" required placeholder="Your name *" class="rounded-lg px-3 py-2.5 text-sm"/>
+        <input name="reporter_phone" required placeholder="Your phone *" class="rounded-lg px-3 py-2.5 text-sm"/>
+        <input name="people_affected" type="number" min="1" value="1" placeholder="People affected" class="rounded-lg px-3 py-2.5 text-sm sm:col-span-2"/>
+        <button class="btn-primary text-white font-semibold py-2.5 rounded-lg sm:col-span-2">Submit Report</button>
+      </form>
+    </div>
+
+    <div id="volunteer" class="glass rounded-2xl p-6 card-hover">
+      <div class="flex items-center gap-3 mb-1">
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center bg-cyan-500/15 text-cyan-300">
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+        </div>
+        <div>
+          <h3 class="text-xl font-bold">Become a Volunteer</h3>
+          <p class="text-slate-400 text-sm">Join thousands helping affected communities.</p>
+        </div>
+      </div>
+      <form id="volunteerForm" class="mt-4 grid sm:grid-cols-2 gap-3">
+        <input name="name" required placeholder="Full name *" class="rounded-lg px-3 py-2.5 text-sm"/>
+        <input name="phone" required placeholder="Phone *" class="rounded-lg px-3 py-2.5 text-sm"/>
+        <input name="email" type="email" required placeholder="Email *" class="rounded-lg px-3 py-2.5 text-sm sm:col-span-2"/>
+        <input name="location" required placeholder="Your city / area *" class="rounded-lg px-3 py-2.5 text-sm"/>
+        <select name="availability" class="rounded-lg px-3 py-2.5 text-sm">
+          <option value="available">Available now</option>
+          <option value="standby">On standby</option>
+          <option value="weekends">Weekends only</option>
+        </select>
+        <input name="skills" placeholder="Skills (first aid, driving, translation...)" class="rounded-lg px-3 py-2.5 text-sm sm:col-span-2"/>
+        <button class="btn-primary text-white font-semibold py-2.5 rounded-lg sm:col-span-2">Register as Volunteer</button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- WEATHER -->
+<section id="weather" class="max-w-7xl mx-auto px-4 sm:px-6 py-10">
+  <div class="glass rounded-2xl p-6">
+    <div class="flex flex-wrap items-end justify-between gap-4">
+      <div>
+        <h3 class="text-xl font-bold">Real-time Weather</h3>
+        <p class="text-slate-400 text-sm">Monitor conditions in any city worldwide.</p>
+      </div>
+      <form id="weatherForm" class="flex gap-2">
+        <input id="weatherCity" placeholder="e.g. Mumbai, Tokyo, Houston" class="rounded-lg px-3 py-2.5 text-sm w-56"/>
+        <button class="btn-primary text-white px-4 rounded-lg text-sm font-semibold">Check</button>
+      </form>
+    </div>
+    <div id="weatherResult" class="mt-5"></div>
+  </div>
+</section>
+
+<!-- ADMIN -->
+<section id="admin" class="max-w-7xl mx-auto px-4 sm:px-6 py-10 hidden">
+  <div class="glass rounded-2xl p-6">
+    <div class="flex items-end justify-between mb-4">
+      <div>
+        <h3 class="text-xl font-bold">Admin Panel</h3>
+        <p class="text-slate-400 text-sm">Manage emergencies and dispatch volunteers.</p>
+      </div>
+      <select id="adminFilter" class="rounded-lg px-3 py-2.5 text-sm">
+        <option value="">All statuses</option>
+        <option value="pending">Pending</option>
+        <option value="in_progress">In progress</option>
+        <option value="resolved">Resolved</option>
+      </select>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-left text-slate-400 border-b border-white/10">
+            <th class="py-2 px-2">#</th><th>Type</th><th>Severity</th><th>Location</th>
+            <th>Reporter</th><th>Status</th><th>Created</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="adminRows"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<footer class="max-w-7xl mx-auto px-4 sm:px-6 py-10 text-center text-slate-500 text-sm">
+  © <span id="year"></span> ReliefNet · Built with FastAPI + Gemini · Designed for resilience.
+</footer>
+
+<!-- AUTH MODAL -->
+<div id="authModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center px-4">
+  <div class="glass rounded-2xl p-6 w-full max-w-md slide-up">
+    <div class="flex items-center justify-between mb-4">
+      <div>
+        <h3 id="authTitle" class="text-xl font-bold">Sign in</h3>
+        <p class="text-slate-400 text-sm" id="authSub">Welcome back to ReliefNet.</p>
+      </div>
+      <button onclick="closeAuth()" class="text-slate-400 hover:text-white text-2xl leading-none">×</button>
+    </div>
+    <form id="authForm" class="grid gap-3">
+      <input id="authName" placeholder="Full name" class="rounded-lg px-3 py-2.5 text-sm hidden"/>
+      <input id="authEmail" type="email" required placeholder="Email" class="rounded-lg px-3 py-2.5 text-sm"/>
+      <input id="authPassword" type="password" required minlength="6" placeholder="Password (min 6)" class="rounded-lg px-3 py-2.5 text-sm"/>
+      <button class="btn-primary text-white font-semibold py-2.5 rounded-lg">Continue</button>
+    </form>
+    <div class="text-xs text-slate-400 mt-3 text-center">
+      <span id="authToggleText">No account?</span>
+      <button onclick="toggleAuth()" id="authToggleBtn" class="text-cyan-300 hover:underline">Create one</button>
+    </div>
+    <div class="text-[11px] text-slate-500 mt-2 text-center">Default admin: admin@relief.org / admin123</div>
+  </div>
+</div>
+
+<!-- NOTIFICATIONS DRAWER -->
+<div id="notifDrawer" class="hidden fixed top-16 right-4 z-40 glass rounded-2xl p-4 w-80 max-w-[95vw] slide-up">
+  <div class="flex items-center justify-between mb-2">
+    <div class="font-semibold">Notifications</div>
+    <button onclick="toggleBell()" class="text-slate-400 hover:text-white">×</button>
+  </div>
+  <div id="notifList" class="space-y-2 max-h-80 overflow-auto scrollbar-thin"></div>
+</div>
+
+<!-- CHATBOT -->
+<button id="chatFab" onclick="openChat()" class="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full btn-primary text-white shadow-glow flex items-center justify-center pop" title="Ask ReliefBot">
+  <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z"/></svg>
+</button>
+
+<div id="chatPanel" class="hidden fixed bottom-24 right-6 z-40 w-[360px] max-w-[95vw] h-[520px] glass rounded-2xl flex flex-col slide-up">
+  <div class="p-4 border-b border-white/10 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:linear-gradient(135deg,#06b6d4,#a855f7)">
+        <svg class="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm0 14a2 2 0 1 1 2-2 2 2 0 0 1-2 2Zm1-5h-2V6h2Z"/></svg>
+      </div>
+      <div>
+        <div class="text-sm font-semibold">ReliefBot</div>
+        <div class="text-[10px] text-emerald-300 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>Online · AI</div>
+      </div>
+    </div>
+    <button onclick="openChat()" class="text-slate-400 hover:text-white text-xl leading-none">×</button>
+  </div>
+  <div id="chatMessages" class="flex-1 overflow-auto p-4 space-y-3 scrollbar-thin"></div>
+  <form id="chatForm" class="p-3 border-t border-white/10 flex gap-2">
+    <input id="chatInput" placeholder="Ask about safety, evacuation, weather..." class="flex-1 rounded-lg px-3 py-2 text-sm"/>
+    <button class="btn-primary px-3 rounded-lg text-white text-sm">Send</button>
+  </form>
+</div>
+
+<script>
+/* ============== STATE ============== */
+const API = '';
+let token = localStorage.getItem('relief_token') || '';
+let user = JSON.parse(localStorage.getItem('relief_user') || 'null');
+let ws = null;
+let charts = {};
+let chatHistory = [];
+
+/* ============== HELPERS ============== */
+const $ = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => [...r.querySelectorAll(s)];
+
+function authHeaders() {
+  const h = {'Content-Type': 'application/json'};
+  if (token) h['Authorization'] = 'Bearer ' + token;
+  return h;
+}
+
+async function api(path, opts = {}) {
+  const res = await fetch(API + path, { ...opts, headers: { ...authHeaders(), ...(opts.headers||{}) }});
+  if (!res.ok) {
+    let msg = res.statusText;
+    try { const d = await res.json(); msg = d.detail || msg; } catch {}
+    throw new Error(msg);
+  }
+  return res.json();
+}
+
+function toast(msg, kind='info') {
+  const colors = {
+    info: 'border-cyan-500/40 text-cyan-100',
+    success: 'border-emerald-500/40 text-emerald-100',
+    warning: 'border-amber-500/40 text-amber-100',
+    danger: 'border-rose-500/40 text-rose-100',
+  };
+  const div = document.createElement('div');
+  div.className = `glass border ${colors[kind]||colors.info} rounded-xl p-3 text-sm pop`;
+  div.textContent = msg;
+  $('#toasts').appendChild(div);
+  setTimeout(()=>{ div.style.opacity='0'; div.style.transform='translateY(-6px)'; div.style.transition='all .3s'; }, 4000);
+  setTimeout(()=> div.remove(), 4500);
+}
+
+function fmtTime(iso) {
+  const d = new Date(iso);
+  return d.toLocaleString();
+}
+
+function severityChip(s) {
+  return `<span class="chip severity-${s}">${s}</span>`;
+}
+function statusChip(s) {
+  return `<span class="chip status-${s}">${s.replace('_',' ')}</span>`;
+}
+
+/* ============== AUTH ============== */
+function setAuth(t, u) {
+  token = t; user = u;
+  localStorage.setItem('relief_token', t);
+  localStorage.setItem('relief_user', JSON.stringify(u));
+  renderAuth();
+}
+function logout() {
+  token=''; user=null;
+  localStorage.removeItem('relief_token'); localStorage.removeItem('relief_user');
+  renderAuth();
+  toast('Signed out');
+}
+function renderAuth() {
+  if (user) {
+    $('#authButtons').classList.add('hidden');
+    $('#userMenu').classList.remove('hidden');
+    $('#userMenu').classList.add('flex');
+    $('#userName').textContent = user.name;
+    if (user.role === 'admin') {
+      $('#navAdmin').classList.remove('hidden');
+      $('#admin').classList.remove('hidden');
+      loadAdmin();
+    } else {
+      $('#navAdmin').classList.add('hidden');
+      $('#admin').classList.add('hidden');
+    }
+  } else {
+    $('#authButtons').classList.remove('hidden');
+    $('#userMenu').classList.add('hidden');
+    $('#userMenu').classList.remove('flex');
+    $('#navAdmin').classList.add('hidden');
+    $('#admin').classList.add('hidden');
+  }
+}
+
+let authMode = 'login';
+function openAuth(mode='login') {
+  authMode = mode;
+  $('#authTitle').textContent = mode==='login' ? 'Sign in' : 'Create account';
+  $('#authSub').textContent = mode==='login' ? 'Welcome back to ReliefNet.' : 'Join the relief network in seconds.';
+  $('#authName').classList.toggle('hidden', mode==='login');
+  $('#authName').required = mode==='register';
+  $('#authToggleText').textContent = mode==='login' ? 'No account?' : 'Already have one?';
+  $('#authToggleBtn').textContent = mode==='login' ? 'Create one' : 'Sign in';
+  $('#authModal').classList.remove('hidden');
+}
+function closeAuth() { $('#authModal').classList.add('hidden'); }
+function toggleAuth() { openAuth(authMode==='login' ? 'register' : 'login'); }
+
+$('#authForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = $('#authEmail').value.trim();
+  const password = $('#authPassword').value;
+  const name = $('#authName').value.trim();
+  try {
+    const body = authMode==='login' ? {email, password} : {name, email, password};
+    const data = await api('/api/auth/' + authMode, { method: 'POST', body: JSON.stringify(body) });
+    setAuth(data.token, data.user);
+    closeAuth();
+    toast(`Welcome ${data.user.name}!`, 'success');
+  } catch (err) { toast(err.message, 'danger'); }
+});
+
+/* ============== FORMS ============== */
+$('#emergencyForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const payload = Object.fromEntries(fd.entries());
+  payload.people_affected = parseInt(payload.people_affected || '1');
+  try {
+    await api('/api/emergencies', { method:'POST', body: JSON.stringify(payload) });
+    toast('Emergency reported — help is being coordinated.', 'success');
+    e.target.reset();
+    loadAll();
+  } catch (err) { toast(err.message, 'danger'); }
+});
+
+$('#volunteerForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const payload = Object.fromEntries(fd.entries());
+  try {
+    await api('/api/volunteers', { method:'POST', body: JSON.stringify(payload) });
+    toast('Thanks for stepping up — you are registered!', 'success');
+    e.target.reset();
+    loadAll();
+  } catch (err) { toast(err.message, 'danger'); }
+});
+
+/* ============== WEATHER ============== */
+const WCODES = {
+  0:'Clear sky',1:'Mainly clear',2:'Partly cloudy',3:'Overcast',
+  45:'Fog',48:'Rime fog',51:'Light drizzle',53:'Drizzle',55:'Heavy drizzle',
+  61:'Light rain',63:'Rain',65:'Heavy rain',71:'Light snow',73:'Snow',75:'Heavy snow',
+  80:'Rain showers',81:'Heavy showers',82:'Violent showers',
+  95:'Thunderstorm',96:'Storm w/ hail',99:'Severe storm'
+};
+$('#weatherForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const city = $('#weatherCity').value.trim();
+  if (!city) return;
+  $('#weatherResult').innerHTML = '<div class="text-slate-400 text-sm">Loading…</div>';
+  try {
+    const d = await api('/api/weather?city=' + encodeURIComponent(city));
+    const c = d.current || {};
+    const daily = d.daily || {};
+    const days = (daily.time||[]).slice(0,5).map((t,i)=>`
+      <div class="rounded-xl bg-white/5 p-3 text-center">
+        <div class="text-xs text-slate-400">${new Date(t).toLocaleDateString(undefined,{weekday:'short'})}</div>
+        <div class="text-lg font-bold mt-1">${Math.round(daily.temperature_2m_max[i])}°<span class="text-slate-400 text-sm">/${Math.round(daily.temperature_2m_min[i])}°</span></div>
+        <div class="text-[10px] text-cyan-300 mt-1">${WCODES[daily.weather_code[i]]||''}</div>
+      </div>`).join('');
+    $('#weatherResult').innerHTML = `
+      <div class="grid md:grid-cols-3 gap-4">
+        <div class="md:col-span-1 rounded-2xl p-5 glow-border" style="background:linear-gradient(135deg, rgba(6,182,212,.15), rgba(168,85,247,.15))">
+          <div class="text-sm text-slate-300">${d.location}</div>
+          <div class="text-5xl font-extrabold mt-1">${Math.round(c.temperature_2m)}°C</div>
+          <div class="text-cyan-300 mt-1">${WCODES[c.weather_code]||''}</div>
+          <div class="grid grid-cols-2 gap-2 mt-4 text-xs text-slate-300">
+            <div>💧 Humidity: ${c.relative_humidity_2m}%</div>
+            <div>🌬 Wind: ${c.wind_speed_10m} km/h</div>
+            <div>🌡 Feels: ${Math.round(c.apparent_temperature)}°C</div>
+            <div>🌧 Precip: ${c.precipitation} mm</div>
+          </div>
+        </div>
+        <div class="md:col-span-2 grid grid-cols-5 gap-2">${days}</div>
+      </div>`;
+  } catch (err) {
+    $('#weatherResult').innerHTML = `<div class="text-rose-300 text-sm">${err.message}</div>`;
+  }
+});
+
+/* ============== DASHBOARD ============== */
+async function loadAll() {
+  try {
+    const [stats, emergencies] = await Promise.all([
+      api('/api/stats'),
+      api('/api/emergencies'),
+    ]);
+    $('#statEmerg').textContent = stats.emergencies;
+    $('#statPending').textContent = stats.pending;
+    $('#statVol').textContent = stats.volunteers;
+    $('#statPeople').textContent = stats.people_affected;
+    $('#heroEmerg').textContent = stats.emergencies;
+    $('#heroVol').textContent = stats.volunteers;
+    $('#heroResolved').textContent = stats.resolved;
+    renderEmergencies(emergencies);
+    renderCharts(stats, emergencies);
+    if (user && user.role === 'admin') loadAdmin();
+  } catch (e) { /* silent */ }
+}
+
+function renderEmergencies(list) {
+  $('#emergCount').textContent = `${list.length} records`;
+  if (!list.length) {
+    $('#emergList').innerHTML = '<div class="text-sm text-slate-400">No emergencies reported yet. Stay safe.</div>';
+    return;
+  }
+  $('#emergList').innerHTML = list.slice(0,12).map(e => `
+    <div class="rounded-xl p-3 border border-white/5 bg-white/5 hover:bg-white/10 transition">
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="font-semibold">${e.type}</span>
+            ${severityChip(e.severity)}
+            ${statusChip(e.status)}
+          </div>
+          <div class="text-sm text-slate-300 mt-1 truncate">📍 ${e.location} · 👥 ${e.people_affected||1}</div>
+          <div class="text-xs text-slate-400 mt-1 line-clamp-2">${e.description}</div>
+        </div>
+        <div class="text-right text-[11px] text-slate-500 shrink-0">${fmtTime(e.created_at)}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderCharts(stats, emergencies) {
+  // Hero trend (last 7 days by day count)
+  const byDay = {};
+  emergencies.forEach(e => {
+    const k = new Date(e.created_at).toLocaleDateString();
+    byDay[k] = (byDay[k]||0)+1;
+  });
+  const labels = Object.keys(byDay).slice(-7);
+  const data = labels.map(k => byDay[k]);
+
+  function makeChart(id, cfg) {
+    const ctx = document.getElementById(id);
+    if (!ctx) return;
+    if (charts[id]) charts[id].destroy();
+    charts[id] = new Chart(ctx, cfg);
+  }
+
+  Chart.defaults.color = '#94a3b8';
+  Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
+
+  makeChart('heroChart', {
+    type: 'line',
+    data: { labels: labels.length ? labels : ['—'], datasets: [{
+      label:'Reports', data: data.length ? data : [0],
+      borderColor:'#22d3ee', backgroundColor:'rgba(34,211,238,0.15)',
+      tension:.4, fill:true, pointRadius:3, pointBackgroundColor:'#a855f7'
+    }]},
+    options: { plugins:{legend:{display:false}}, scales:{ y:{beginAtZero:true, ticks:{precision:0}} } }
+  });
+
+  const typeLabels = Object.keys(stats.by_type||{});
+  const typeData = typeLabels.map(k => stats.by_type[k]);
+  makeChart('typeChart', {
+    type: 'doughnut',
+    data: { labels: typeLabels.length?typeLabels:['No data'], datasets: [{
+      data: typeData.length?typeData:[1],
+      backgroundColor:['#22d3ee','#a855f7','#f472b6','#34d399','#fbbf24','#fb7185','#60a5fa'],
+      borderWidth: 0,
+    }]},
+    options: { plugins:{ legend:{ position:'bottom', labels:{boxWidth:10}}}, cutout: '60%' }
+  });
+
+  const sevLabels = ['low','medium','high','critical'];
+  const sevData = sevLabels.map(s => (stats.by_severity||{})[s] || 0);
+  makeChart('sevChart', {
+    type: 'bar',
+    data: { labels: sevLabels, datasets:[{
+      data: sevData,
+      backgroundColor:['#34d399','#fbbf24','#fb923c','#f87171'],
+      borderRadius: 6,
+    }]},
+    options: { plugins:{legend:{display:false}}, scales:{ y:{beginAtZero:true, ticks:{precision:0}}}}
+  });
+}
+
+/* ============== ADMIN ============== */
+$('#adminFilter').addEventListener('change', loadAdmin);
+async function loadAdmin() {
+  if (!user || user.role !== 'admin') return;
+  const s = $('#adminFilter').value;
+  try {
+    const list = await api('/api/emergencies' + (s ? `?status_filter=${s}`:''));
+    $('#adminRows').innerHTML = list.map(e => `
+      <tr class="border-b border-white/5">
+        <td class="py-2 px-2 text-slate-500">#${e.id}</td>
+        <td>${e.type}</td>
+        <td>${severityChip(e.severity)}</td>
+        <td class="truncate max-w-[160px]">${e.location}</td>
+        <td class="text-slate-300">${e.reporter_name}<br><span class="text-[11px] text-slate-500">${e.reporter_phone}</span></td>
+        <td>
+          <select onchange="updateStatus(${e.id}, this.value)" class="rounded-md px-2 py-1 text-xs">
+            ${['pending','in_progress','resolved'].map(s => `<option value="${s}" ${s===e.status?'selected':''}>${s.replace('_',' ')}</option>`).join('')}
+          </select>
+        </td>
+        <td class="text-[11px] text-slate-500">${fmtTime(e.created_at)}</td>
+        <td><button onclick="deleteEmergency(${e.id})" class="text-rose-300 hover:text-rose-200 text-xs">Delete</button></td>
+      </tr>
+    `).join('') || '<tr><td colspan="8" class="text-center py-4 text-slate-500 text-sm">No records.</td></tr>';
+  } catch (err) { toast(err.message, 'danger'); }
+}
+
+async function updateStatus(id, status) {
+  try {
+    await api(`/api/emergencies/${id}`, { method:'PATCH', body: JSON.stringify({status}) });
+    toast(`Updated #${id} → ${status}`, 'success');
+    loadAll();
+  } catch (e) { toast(e.message, 'danger'); }
+}
+
+async function deleteEmergency(id) {
+  if (!confirm('Delete this record?')) return;
+  try {
+    await api(`/api/emergencies/${id}`, { method:'DELETE' });
+    toast('Deleted', 'success');
+    loadAll();
+  } catch (e) { toast(e.message, 'danger'); }
+}
+
+/* ============== NOTIFICATIONS ============== */
+$('#bellBtn').addEventListener('click', toggleBell);
+async function toggleBell() {
+  const d = $('#notifDrawer');
+  d.classList.toggle('hidden');
+  if (!d.classList.contains('hidden')) {
+    try {
+      const list = await api('/api/notifications');
+      $('#notifList').innerHTML = list.map(n => `
+        <div class="rounded-lg p-2 bg-white/5 text-sm">
+          <div>${n.message}</div>
+          <div class="text-[10px] text-slate-500 mt-1">${fmtTime(n.created_at)}</div>
+        </div>
+      `).join('') || '<div class="text-sm text-slate-400">No notifications.</div>';
+      $('#bellDot').classList.add('hidden');
+    } catch {}
+  }
+}
+
+function connectWS() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const url = `${proto}://${location.host}/ws`;
+  try {
+    ws = new WebSocket(url);
+    ws.onmessage = (ev) => {
+      try {
+        const m = JSON.parse(ev.data);
+        if (m.type === 'notification') {
+          toast(m.message, m.kind || 'info');
+          $('#bellDot').classList.remove('hidden');
+          loadAll();
+        }
+      } catch {}
+    };
+    ws.onclose = () => setTimeout(connectWS, 3000);
+  } catch { setTimeout(connectWS, 3000); }
+}
+
+/* ============== CHATBOT ============== */
+function openChat() {
+  const p = $('#chatPanel');
+  p.classList.toggle('hidden');
+  if (!p.classList.contains('hidden') && chatHistory.length === 0) {
+    addChat('bot', "Hi, I'm ReliefBot 🤖. I can guide you through disasters — floods, earthquakes, fires, and more. How can I help?");
+  }
+}
+
+function addChat(role, content) {
+  const wrap = document.createElement('div');
+  wrap.className = role==='user' ? 'flex justify-end' : 'flex justify-start';
+  wrap.innerHTML = `<div class="max-w-[80%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap ${role==='user'?'chat-bubble-user text-white':'chat-bubble-bot text-slate-100'}">${content.replace(/</g,'&lt;')}</div>`;
+  $('#chatMessages').appendChild(wrap);
+  $('#chatMessages').scrollTop = $('#chatMessages').scrollHeight;
+}
+
+$('#chatForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const msg = $('#chatInput').value.trim();
+  if (!msg) return;
+  addChat('user', msg);
+  chatHistory.push({role:'user', content: msg});
+  $('#chatInput').value = '';
+  const t = document.createElement('div');
+  t.className = 'flex justify-start';
+  t.innerHTML = '<div class="chat-bubble-bot rounded-2xl px-3 py-2 typing"><span></span><span></span><span></span></div>';
+  $('#chatMessages').appendChild(t);
+  $('#chatMessages').scrollTop = $('#chatMessages').scrollHeight;
+  try {
+    const r = await api('/api/chat', { method:'POST', body: JSON.stringify({message: msg, history: chatHistory.slice(0,-1)}) });
+    t.remove();
+    addChat('bot', r.reply);
+    chatHistory.push({role:'assistant', content: r.reply});
+  } catch (err) {
+    t.remove();
+    addChat('bot', 'Sorry — I had trouble responding. Please try again.');
+  }
+});
+
+/* ============== NAV / SCROLL ============== */
+$$('[data-nav]').forEach(a => {
+  a.addEventListener('click', () => {
+    $$('[data-nav]').forEach(x => x.classList.remove('active'));
+    a.classList.add('active');
+  });
+});
+
+/* ============== INIT ============== */
+document.getElementById('year').textContent = new Date().getFullYear();
+renderAuth();
+loadAll();
+connectWS();
+setInterval(loadAll, 30000);
+</script>
+</body>
+</html>
