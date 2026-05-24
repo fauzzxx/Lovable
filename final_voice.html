@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Weaver — Call & Build</title>
+<style>
+  :root{--bg:#181a20;--panel:#1f2128;--card:#262931;--ink:#eef0f4;--muted:#9aa0ad;--dim:#6b7180;
+    --line:#31343d;--accent:#46b88c;--accent2:#5fc79e;--user:#243042;--bad:#e0726b}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+    background:var(--bg);color:var(--ink);display:flex;flex-direction:column}
+  header{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:0;z-index:5}
+  header .dot{width:11px;height:11px;border-radius:50%;background:var(--dim)}
+  header .dot.live{background:var(--accent);box-shadow:0 0 12px var(--accent)}
+  header h1{font-size:16px;margin:0;font-weight:600}
+  header .sub{font-size:12px;color:var(--dim)}
+  .chat{flex:1;padding:22px;display:flex;flex-direction:column;gap:13px;max-width:760px;width:100%;margin:0 auto}
+  .msg{max-width:82%;padding:11px 15px;border-radius:14px;font-size:15px;line-height:1.5}
+  .msg.user{align-self:flex-end;background:var(--user)}
+  .msg.ai{align-self:flex-start;background:var(--card);border:1px solid var(--line)}
+  .msg.interim{opacity:.55;font-style:italic}
+  .empty{margin:30px auto;text-align:center;color:var(--muted)}
+  .empty .big{font-size:34px;margin-bottom:8px}
+  /* result card */
+  .result{align-self:stretch;background:var(--card);border:1px solid var(--accent);border-radius:16px;padding:18px 20px;
+    box-shadow:0 0 0 1px rgba(70,184,140,.15),0 22px 60px -34px rgba(70,184,140,.5)}
+  .result h3{margin:0 0 4px;font-size:16px}
+  .result .nm{color:var(--accent2);font-weight:600}
+  .result .row{display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap}
+  .result a.link{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#0e241b;text-decoration:none;
+    font-weight:600;padding:10px 15px;border-radius:10px;font-size:14px}
+  .result a.alt{background:transparent;color:var(--accent2);border:1px solid var(--line);}
+  .result .err{color:var(--bad);font-size:13px;margin-top:8px}
+  .result .building{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:14px}
+  .spin{width:15px;height:15px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;
+    display:inline-block;animation:rot .8s linear infinite}
+  @keyframes rot{to{transform:rotate(360deg)}}
+  footer{position:sticky;bottom:0;border-top:1px solid var(--line);background:var(--panel);
+    padding:18px;display:flex;flex-direction:column;align-items:center;gap:10px}
+  .mic{width:78px;height:78px;border-radius:50%;border:0;background:var(--accent);color:#0e241b;
+    display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.15s;box-shadow:0 8px 30px -10px rgba(70,184,140,.7)}
+  .mic:hover{background:var(--accent2)}
+  .mic.live{background:var(--bad);color:#2a0f0d;animation:pulse 1.2s infinite}
+  .mic svg{width:33px;height:33px;fill:currentColor}
+  @keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(224,114,107,.5)}50%{box-shadow:0 0 0 16px rgba(224,114,107,0)}}
+  .status{font-size:13px;color:var(--muted);min-height:18px;text-align:center}
+  .status.err{color:var(--bad)}
+</style>
+</head>
+<body>
+  <header>
+    <span class="dot" id="dot"></span>
+    <div><h1>Weaver — Call &amp; Build</h1><div class="sub">Talk · build · deploy — link appears below</div></div>
+  </header>
+
+  <div class="chat" id="chat">
+    <div class="empty" id="empty">
+      <div class="big">📞</div>
+      <div>Tap the call button and tell me what site to build.</div>
+      <div style="font-size:12.5px;color:var(--dim);margin-top:6px">Use Chrome or Edge and allow the microphone.</div>
+    </div>
+  </div>
+
+  <footer>
+    <button class="mic" id="mic" title="Start the call">
+      <svg viewBox="0 0 24 24"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.7 21 3 13.3 3 3.9c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.2.2 2.4.6 3.6.1.4 0 .8-.3 1l-2.2 2.3z"/></svg>
+    </button>
+    <div class="status" id="status">Tap to start the call</div>
+  </footer>
+
+<audio id="player" hidden></audio>
+<script>
+const $=(id)=>document.getElementById(id);
+const history=[];
+const GREETING="Hi! I'm Weaver. What kind of website would you like me to build for you today?";
+let stream=null, rec=null, ws=null;
+let listening=false, speaking=false, awaitingReply=false, building=false, utter="", interimEl=null, gotError=false;
+
+function status(t,err=false){ const s=$('status'); s.textContent=t; s.className='status'+(err?' err':''); }
+
+function addMsg(role,text,cls=''){
+  $('empty')?.remove();
+  const d=document.createElement('div'); d.className='msg '+role+(cls?' '+cls:''); d.textContent=text;
+  $('chat').appendChild(d); window.scrollTo(0,document.body.scrollHeight); return d;
+}
+function showInterim(text){
+  if(!interimEl){ interimEl=addMsg('user',text,'interim'); } else { interimEl.textContent=text; }
+  window.scrollTo(0,document.body.scrollHeight);
+}
+function clearInterim(){ if(interimEl){ interimEl.remove(); interimEl=null; } }
+
+$('mic').onclick=()=> $('mic').classList.contains('live') ? stop() : start();
+
+async function start(){
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
+  }catch(e){ status('Microphone blocked — allow mic access. ('+e.name+')',true); return; }
+  $('mic').classList.add('live'); $('dot').classList.add('live');
+  addMsg('ai',GREETING); history.push({role:'assistant',text:GREETING});
+  status('Greeting…'); await speak(GREETING);
+  const proto=location.protocol==='https:'?'wss:':'ws:';
+  ws=new WebSocket(`${proto}//${location.host}/ws/asr`);
+  ws.onopen=()=>{
+    listening=true; gotError=false; status('Listening… tell me about your site');
+    let mime='';
+    if(window.MediaRecorder){
+      if(MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) mime='audio/webm;codecs=opus';
+      else if(MediaRecorder.isTypeSupported('audio/webm')) mime='audio/webm';
+      else if(MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) mime='audio/ogg;codecs=opus';
+    }
+    try{ rec = mime ? new MediaRecorder(stream,{mimeType:mime}) : new MediaRecorder(stream); }
+    catch(e){ status('Audio recording not supported in this browser.',true); return; }
+    rec.ondataavailable=(e)=>{
+      if(speaking||building||awaitingReply) return;
+      if(e.data && e.data.size>0 && ws && ws.readyState===1) ws.send(e.data);
+    };
+    rec.start(250);
+  };
+  ws.onmessage=(ev)=>{
+    let m; try{ m=JSON.parse(ev.data); }catch{ return; }
+    if(m.error){ gotError=true; status(m.error,true); stop(); return; }
+    const fin=(m.speech_final || m.utterance_end);
+    if(m.transcript){
+      const live=(utter+' '+m.transcript).trim();
+      if(m.is_final) utter=live;
+      showInterim(live);
+    }
+    if(fin && utter.trim() && !awaitingReply && !speaking && !building){
+      const t=utter.trim(); utter=''; clearInterim(); handleUser(t);
+    }
+  };
+  ws.onclose=()=>{ $('mic').classList.remove('live'); $('dot').classList.remove('live'); if(listening && !gotError) status('Call ended — tap to start again.'); listening=false; };
+  ws.onerror=()=>{ if(!gotError) status('Connection error — is the backend running?',true); };
+}
+
+function stop(){
+  listening=false; $('mic').classList.remove('live'); $('dot').classList.remove('live');
+  if(!gotError && !building) status('Tap to start the call');
+  try{ rec && rec.state!=='inactive' && rec.stop(); }catch{}
+  try{ stream&&stream.getTracks().forEach(t=>t.stop()); }catch{}
+  try{ ws&&ws.close(); }catch{}
+  clearInterim();
+}
+
+async function handleUser(text){
+  awaitingReply=true; addMsg('user',text); history.push({role:'user',text}); status('Thinking…');
+  let data=null;
+  try{
+    const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,history})});
+    data=await r.json();
+    if(!r.ok||data.error){ status(data.error||'Error',true); awaitingReply=false; return; }
+    addMsg('ai',data.reply); history.push({role:'assistant',text:data.reply});
+  }catch(e){ status('Request failed: '+e.message,true); awaitingReply=false; return; }
+  awaitingReply=false;
+  await speak(data.reply);
+  if(data.build_spec){ runBuild(data.build_spec); }
+  else if(listening){ status('Listening… go on'); }
+}
+
+async function runBuild(spec){
+  building=true; status('Building & deploying…');
+  // a live result card with a spinner
+  const card=document.createElement('div'); card.className='result';
+  card.innerHTML='<h3>Building your site…</h3><div class="building"><span class="spin"></span>'
+    +'Generating with Claude, then deploying to Vercel. This can take ~30–60s.</div>';
+  $('chat').appendChild(card); window.scrollTo(0,document.body.scrollHeight);
+  try{
+    const r=await fetch('/api/build',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({spec})});
+    const d=await r.json();
+    if(!r.ok||d.error){ card.innerHTML='<h3>Build failed</h3><div class="err">'+(d.error||'Unknown error')+'</div>'; status('Build failed',true); building=false; return; }
+    let html='<h3>✅ Your site is live — <span class="nm">'+escapeHtml(d.name||'site')+'</span></h3>';
+    html+='<div class="row">';
+    if(d.vercel_url){ html+='<a class="link" href="'+d.vercel_url+'" target="_blank">Open deployed site ↗</a>'; }
+    html+='<a class="link alt" href="'+d.local_url+'" target="_blank">Open local preview ↗</a>';
+    html+='</div>';
+    if(d.vercel_url){ html+='<div class="row" style="font-size:12.5px;color:var(--muted)">'+d.vercel_url+'</div>'; }
+    if(d.deploy_error){ html+='<div class="err">'+escapeHtml(d.deploy_error)+'</div>'; }
+    card.innerHTML=html;
+    window.scrollTo(0,document.body.scrollHeight);
+    await speak("Done! Your site is live. I've put the link on your screen.");
+    status('Done — link is on screen. Tap the call button to build another.');
+  }catch(e){
+    card.innerHTML='<h3>Build failed</h3><div class="err">'+e.message+'</div>'; status('Build failed',true);
+  }
+  building=false;
+}
+
+async function speak(text){
+  status('Speaking…'); speaking=true;
+  try{
+    const r=await fetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
+    if(!r.ok){ const d=await r.json().catch(()=>({})); status(d.error||'TTS failed',true); return; }
+    const blob=new Blob([await r.arrayBuffer()],{type:r.headers.get('content-type')||'audio/mpeg'});
+    const url=URL.createObjectURL(blob); const a=$('player'); a.src=url;
+    await a.play().catch(()=>{});
+    await new Promise(res=>{ a.onended=res; a.onpause=res; setTimeout(res,20000); });
+    URL.revokeObjectURL(url);
+  }catch(e){ /* ignore */ }
+  finally{ speaking=false; }
+}
+
+function escapeHtml(s){ return (s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+</script>
+</body>
+</html>

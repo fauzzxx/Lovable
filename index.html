@@ -186,6 +186,62 @@
   .code-editor{flex:1;width:100%;resize:none;border:0;outline:none;background:#282c34;color:#e6e6e6;
     font-family:var(--mono);font-size:12.5px;line-height:1.6;padding:16px;white-space:pre;overflow:auto;tab-size:2;-moz-tab-size:2}
   .code-editor::selection{background:rgba(70,184,140,.35)}
+
+  /* ---------------- pricing overlay (static page, WEAVER theme) ---------------- */
+  #pricingView{position:fixed;inset:0;z-index:60;background:var(--bg);overflow-y:auto;display:none}
+  .pricing-inner{max-width:1200px;margin:0 auto;padding:22px 28px 90px}
+  .pr-bar{display:flex;align-items:center;gap:12px;height:36px;margin-bottom:14px}
+  .pr-bar .back{margin-left:auto}
+  .pr-head{text-align:center;margin:10px 0 36px}
+  .pr-head .mk{width:36px;height:36px;border-radius:10px;background:var(--accent-soft);display:inline-flex;align-items:center;justify-content:center;margin-bottom:14px}
+  .pr-head .mk svg{width:20px;height:20px;color:var(--accent)}
+  .pr-head h1{font-family:var(--serif);font-size:40px;font-weight:500;letter-spacing:-.01em;margin:0 0 10px}
+  .pr-head h1 .g{color:var(--accent2)}
+  .pr-head p{color:var(--muted);font-size:15px;margin:0}
+  .pr-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;align-items:stretch}
+  .pcard{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:26px 24px;display:flex;flex-direction:column;gap:13px}
+  .pcard.pop{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent-soft),0 26px 70px -34px rgba(70,184,140,.55)}
+  .pcard .pop-badge{position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--accent);color:#10241c;font-size:11px;font-weight:600;padding:4px 13px;border-radius:999px;white-space:nowrap}
+  .pcard .pc-icon{width:46px;height:46px;border-radius:12px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center}
+  .pcard .pc-icon svg{width:23px;height:23px;color:var(--accent)}
+  .pcard .pc-name{display:flex;align-items:baseline;gap:9px}
+  .pcard .pc-name b{font-family:var(--serif);font-size:24px;font-weight:500}
+  .pcard .pc-name span{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+  .pcard .pc-price{font-size:14px;color:var(--muted)}
+  .pcard .pc-price b{font-family:var(--serif);font-size:40px;font-weight:500;color:var(--ink);margin-right:2px}
+  .pcard .pc-desc{color:var(--muted);font-size:13.5px;line-height:1.5;min-height:42px}
+  .pcard .pc-feat-h{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);border-top:1px solid var(--line);padding-top:15px}
+  .pcard ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px}
+  .pcard li{display:flex;align-items:center;gap:10px;font-size:13.5px;color:var(--ink)}
+  .pcard li.off{color:var(--dim)}
+  .pcard li .tick{flex:none;width:16px;height:16px}
+  .tick-y{color:var(--accent)} .tick-n{color:var(--dim)}
+  .pcard .pc-cta{margin-top:auto;padding-top:6px}
+  .pcard .pc-cta .btn{width:100%;justify-content:center;padding:12px}
+  .pr-strip{display:flex;flex-wrap:wrap;justify-content:center;gap:30px 40px;margin-top:42px;border-top:1px solid var(--line);padding-top:28px}
+  .pr-strip .it{display:flex;align-items:center;gap:11px}
+  .pr-strip .it .ic-w{width:34px;height:34px;border-radius:9px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;color:var(--accent);flex:none}
+  .pr-strip .it .ic-w svg{width:17px;height:17px}
+  .pr-strip .it b{font-size:13px;display:block}
+  .pr-strip .it small{color:var(--muted);font-size:12px}
+  .pr-cmp{margin-top:66px}
+  .pr-cmp h2{text-align:center;font-family:var(--serif);font-size:30px;font-weight:500;margin:0 0 6px;letter-spacing:-.01em}
+  .pr-cmp h2 .g{color:var(--accent2)}
+  .pr-cmp .sub{text-align:center;color:var(--muted);font-size:14px;margin:0 0 26px}
+  .ctable-wrap{border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .ctable{width:100%;border-collapse:collapse;font-size:13.5px}
+  .ctable th,.ctable td{padding:11px 16px;text-align:left;border-bottom:1px solid var(--line)}
+  .ctable tbody tr:last-child td{border-bottom:0}
+  .ctable thead th{background:var(--panel);font-family:var(--serif);font-weight:500;font-size:15px;vertical-align:bottom}
+  .ctable thead th .pl{font-family:var(--sans);font-size:11px;color:var(--dim);display:block;letter-spacing:.04em;font-weight:400;margin-top:2px}
+  .ctable td:not(:first-child),.ctable th:not(:first-child){text-align:center}
+  .ctable tbody tr:nth-child(even){background:rgba(255,255,255,.018)}
+  .ctable .feat{color:var(--muted)}
+  .ctable .col-pro{background:var(--accent-soft)}
+  .ctable .price-row td{font-family:var(--serif);font-size:18px;color:var(--accent2);background:var(--panel);border-bottom:0}
+  .ctable .price-row td:first-child{color:var(--ink);font-size:13px;font-family:var(--sans);letter-spacing:.05em;text-transform:uppercase}
+  .ctable .ci{display:inline-flex;width:16px;height:16px}
+  @media(max-width:900px){.pr-cards{grid-template-columns:1fr}.ctable{font-size:11.5px}.ctable th,.ctable td{padding:8px 9px}.pr-head h1{font-size:32px}}
   /* versions */
   .vlist{overflow-y:auto;padding:18px}
   .vrow{display:flex;align-items:center;gap:13px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:10px}
@@ -253,6 +309,7 @@
 
   <div class="topbar">
     <div class="logo"><span class="mk"><svg class="ic" style="color:var(--accent)"><use href="#i-weave"/></svg></span><span class="wm">Weaver</span></div>
+    <button class="btn ghost" id="pricingBtn" style="margin-left:6px">Pricing</button>
     <div class="spacer"></div>
     <select id="projectSelect" title="Open a project">
       <option value="">＋ New project</option>
@@ -317,6 +374,127 @@
           <div class="scard"><div class="thumb" style="background:#122421"><b style="color:#8fd6c4">Pelagia</b></div><div class="smeta"><span class="nm">Pelagia Ops</span><span class="cat">App</span></div></div>
           <div class="scard"><div class="thumb" style="background:#241e10"><b style="color:#e6cf94">Ledgerly</b></div><div class="smeta"><span class="nm">Ledgerly invoices</span><span class="cat">Tool</span></div></div>
           <div class="scard"><div class="thumb" style="background:#1c1826"><b style="color:#c3b3e6">Atlas</b></div><div class="smeta"><span class="nm">Atlas memory map</span><span class="cat">App</span></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PRICING (static page) ============ -->
+  <section id="pricingView" aria-hidden="true">
+    <div class="pricing-inner">
+      <div class="pr-bar">
+        <div class="logo"><span class="mk"><svg class="ic" style="color:var(--accent)"><use href="#i-weave"/></svg></span><span class="wm">Weaver</span></div>
+        <button class="btn back" id="pricingClose">← Back</button>
+      </div>
+
+      <div class="pr-head">
+        <div class="mk"><svg viewBox="0 0 24 24"><use href="#i-weave"/></svg></div>
+        <h1 class="serif">WEAVER <span class="g">Pricing</span></h1>
+        <p>Choose the perfect plan to build, deploy and scale your ideas with AI.</p>
+      </div>
+
+      <div class="pr-cards">
+        <!-- Explorer -->
+        <div class="pcard">
+          <div class="pc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg></div>
+          <div class="pc-name"><b class="serif">Explorer</b><span>Free</span></div>
+          <div class="pc-price"><b>₹0</b>/ month</div>
+          <div class="pc-desc">Perfect for exploring WEAVER and building your first ideas.</div>
+          <div class="pc-feat-h">Features</div>
+          <ul>
+            <li><svg class="tick tick-y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Limited prompts/day</li>
+            <li><svg class="tick tick-y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Frontend-only projects</li>
+            <li><svg class="tick tick-y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Live preview</li>
+            <li><svg class="tick tick-y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Basic templates</li>
+            <li><svg class="tick tick-y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Public deployment</li>
+            <li><svg class="tick tick-y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Community support</li>
+            <li><svg class="tick tick-y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>1 active project</li>
+            <li class="off"><svg class="tick tick-n" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>Full-stack app generation</li>
+            <li class="off"><svg class="tick tick-n" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>SQLite database integration</li>
+            <li class="off"><svg class="tick tick-n" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>External API integration</li>
+            <li class="off"><svg class="tick tick-n" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>AI agent generation</li>
+            <li class="off"><svg class="tick tick-n" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>Private deployments</li>
+            <li class="off"><svg class="tick tick-n" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>Code export</li>
+            <li class="off"><svg class="tick tick-n" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>Priority support</li>
+          </ul>
+          <div class="pc-cta"><button class="btn" style="border-color:var(--accent);color:var(--accent2)">Get Started Free →</button></div>
+        </div>
+
+        <!-- Creator -->
+        <div class="pcard">
+          <div class="pc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="M12 15l-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/></svg></div>
+          <div class="pc-name"><b class="serif">Creator</b><span>Premium</span></div>
+          <div class="pc-price"><b>₹799</b>/ month</div>
+          <div class="pc-desc">For creators, freelancers and students who want more power and flexibility.</div>
+          <div class="pc-feat-h">Features</div>
+          <ul>
+            <li><svg class="tick tick-y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Unlimited prompts</li>
+            <li><svg class="tick tick-y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Full-stack app generation</li>
+            <li><svg class="tick tick-y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>SQLite database integration</li>
+            <li><svg class="tick tick-y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>External API integration</li>
+            <li><svg class="tick tick-y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>AI agent generation</li>
+            <li><svg class="tick tick-y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Private deployments</li>
+            <li><svg class="tick tick-y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>GitHub integration</li>
+            <li><svg class="tick tick-y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Code export</li>
+            <li><svg class="tick tick-y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Priority support</li>
+            <li><svg class="tick tick-y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>5 active projects</li>
+            <li class="off"><svg class="tick tick-n" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>Team collaboration</li>
+            <li class="off"><svg class="tick tick-n" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>Custom domains</li>
+            <li class="off"><svg class="tick tick-n" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>Advanced analytics</li>
+          </ul>
+          <div class="pc-cta"><button class="btn primary">Start Creator Plan — ₹799/mo →</button></div>
+        </div>
+
+        <!-- Startup -->
+        <div class="pcard pop">
+          <div class="pop-badge">Most Popular</div>
+          <div class="pc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M2 18h20l-2-9-5 4-3-7-3 7-5-4-2 9z"/></svg></div>
+          <div class="pc-name"><b class="serif">Startup</b><span>Pro</span></div>
+          <div class="pc-price"><b>₹2499</b>/ month</div>
+          <div class="pc-desc">For startups, agencies and teams building production-ready apps.</div>
+          <div class="pc-feat-h">Features</div>
+          <ul>
+            <li><svg class="tick tick-y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Everything in Creator</li>
+            <li><svg class="tick tick-y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Team collaboration</li>
+            <li><svg class="tick tick-y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Multi-user workspace</li>
+            <li><svg class="tick tick-y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Custom domains</li>
+            <li><svg class="tick tick-y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Advanced production deployments</li>
+            <li><svg class="tick tick-y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Version history (Unlimited)</li>
+            <li><svg class="tick tick-y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Advanced analytics</li>
+            <li><svg class="tick tick-y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>API marketplace access (Full)</li>
+            <li><svg class="tick tick-y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Role-based access</li>
+            <li><svg class="tick tick-y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Priority support</li>
+            <li><svg class="tick tick-y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>White-label option</li>
+            <li><svg class="tick tick-y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Unlimited projects</li>
+            <li><svg class="tick tick-y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Enterprise integrations</li>
+          </ul>
+          <div class="pc-cta"><button class="btn primary">Start Pro Plan — ₹2499/mo →</button></div>
+        </div>
+      </div>
+
+      <div class="pr-strip">
+        <div class="it"><span class="ic-w"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span><div><b>Secure &amp; Reliable</b><small>Enterprise grade security</small></div></div>
+        <div class="it"><span class="ic-w"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/></svg></span><div><b>AI-Powered</b><small>Built with advanced AI</small></div></div>
+        <div class="it"><span class="ic-w"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.5 1.5A4 4 0 0 0 6 19h11.5z"/></svg></span><div><b>Deploy Anywhere</b><small>One-click deployment</small></div></div>
+        <div class="it"><span class="ic-w"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg></span><div><b>Full Code Ownership</b><small>Your code, your control</small></div></div>
+        <div class="it"><span class="ic-w"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><path d="M4 14a2 2 0 0 1 2-2h1v6H6a2 2 0 0 1-2-2zM20 14a2 2 0 0 0-2-2h-1v6h1a2 2 0 0 0 2-2z"/><path d="M18 18a4 4 0 0 1-4 4h-2"/></svg></span><div><b>Always Here</b><small>Support when you need it</small></div></div>
+      </div>
+
+      <div class="pr-cmp">
+        <h2 class="serif">WEAVER — <span class="g">Plan Comparison</span></h2>
+        <p class="sub">Choose the perfect plan to build, deploy and scale your ideas with AI.</p>
+        <div class="ctable-wrap">
+          <table class="ctable">
+            <thead>
+              <tr>
+                <th>Feature</th>
+                <th>Free Plan<span class="pl">Explorer</span></th>
+                <th>Premium Plan<span class="pl">Creator</span></th>
+                <th class="col-pro">Pro Plan<span class="pl">Startup</span></th>
+              </tr>
+            </thead>
+            <tbody id="cmpBody"><!-- rows injected by JS --></tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -535,6 +713,9 @@ window.addEventListener('DOMContentLoaded', async ()=>{
 
 function bindEvents(){
   $('settingsBtn').onclick = openSettings;
+  $('pricingBtn').onclick = openPricing;
+  $('pricingClose').onclick = closePricing;
+  document.addEventListener('keydown', (e)=>{ if(e.key==='Escape' && $('pricingView').style.display==='block') closePricing(); });
   $('settingsCancel').onclick = ()=> $('settingsOverlay').classList.remove('open');
   $('settingsSave').onclick = saveSettings;
   $('settingsOverlay').onclick = (e)=>{ if(e.target===$('settingsOverlay')) $('settingsOverlay').classList.remove('open'); };
@@ -683,6 +864,52 @@ function setMode(mode){
     $('composerSlot').appendChild($('composer'));
   }
 }
+
+// ---------------- pricing (static page) ----------------
+const PRICING_ROWS = [
+  ["AI App Generation","Limited prompts/day","Unlimited","Unlimited"],
+  ["Frontend Website Generation","y","y","y"],
+  ["Full-Stack App Generation","n","y","y"],
+  ["SQLite Database Integration","n","y","y"],
+  ["External API Integration","n","y","y"],
+  ["AI Agent Generation","n","y","y"],
+  ["Live Preview","y","y","y"],
+  ["Edit Live Preview","y","y","y"],
+  ["Code Preview","Read-only","Fully Editable","Fully Editable"],
+  ["Backend Code Access","n","y","y"],
+  ["GitHub Integration","n","y","y"],
+  ["Deployment Support","Public only","Private Deployments","Advanced Production Deployments"],
+  ["Custom Domains","n","n","y"],
+  ["Team Collaboration","n","n","y"],
+  ["Multi-user Workspace","n","n","y"],
+  ["Version History","Limited","Extended","Unlimited"],
+  ["AI Generation Speed","Standard","Faster","Fastest Priority"],
+  ["Templates","Basic","Premium Templates","All Templates"],
+  ["Storage Limit","Low","Medium","High"],
+  ["Project Export","n","y","y"],
+  ["Voice-Based Generation","n","Limited","Advanced"],
+  ["Role-Based Access","n","n","y"],
+  ["Analytics Dashboard","n","Basic","Advanced"],
+  ["API Marketplace Access","n","Partial","Full"],
+  ["Community Support","y","y","Priority Support"],
+  ["Dedicated Support","n","n","y"],
+  ["White Label Option","n","n","y"],
+  ["Enterprise Integrations","n","n","y"],
+];
+const CMP_YES='<svg class="ci tick-y" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+const CMP_NO='<svg class="ci tick-n" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>';
+function cmpCell(v){ return v==='y'?CMP_YES : v==='n'?CMP_NO : '<span class="feat">'+v+'</span>'; }
+function buildComparison(){
+  const body=$('cmpBody'); if(!body||body.dataset.built) return;
+  let html='';
+  for(const r of PRICING_ROWS){
+    html+='<tr><td>'+r[0]+'</td><td>'+cmpCell(r[1])+'</td><td>'+cmpCell(r[2])+'</td><td class="col-pro">'+cmpCell(r[3])+'</td></tr>';
+  }
+  html+='<tr class="price-row"><td>Monthly Price</td><td>₹0 / month</td><td>₹799 / month</td><td class="col-pro">₹2499 / month</td></tr>';
+  body.innerHTML=html; body.dataset.built='1';
+}
+function openPricing(){ buildComparison(); const v=$('pricingView'); v.style.display='block'; v.scrollTop=0; }
+function closePricing(){ $('pricingView').style.display='none'; }
 
 // ---------------- send (generate / refine) ----------------
 async function send(){
