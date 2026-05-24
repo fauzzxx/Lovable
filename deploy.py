@@ -260,13 +260,15 @@ def ensure_project_and_env(
 
 
 def _pick_url(data: dict) -> str | None:
-    """Prefer the clean production alias (e.g. myapp.vercel.app) over the long
-    per-deployment hash URL — the alias is the stable, expected public link."""
+    """Use the deployment's own URL — Vercel guarantees it resolves once the
+    deployment is READY. Production aliases like <project>.vercel.app can be
+    unassigned / not-yet-live on team accounts (shows up as 'not reachable'),
+    so we only fall back to an alias if there's no deployment URL."""
+    if data.get("url"):
+        return "https://" + data["url"]
     aliases = [a for a in (data.get("alias") or []) if isinstance(a, str) and a]
     if aliases:
         return "https://" + sorted(aliases, key=len)[0]
-    if data.get("url"):
-        return "https://" + data["url"]
     return None
 
 
@@ -323,6 +325,7 @@ def create_deployment(
         "url": _pick_url(data),
         "state": data.get("readyState") or data.get("status") or "QUEUED",
         "inspector": data.get("inspectorUrl"),
+        "vercel_project_id": data.get("projectId"),
     }
 
 

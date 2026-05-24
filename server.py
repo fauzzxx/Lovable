@@ -602,11 +602,12 @@ async def deploy_project(project_id: str, request: Request):
         # Pre-create project + push env vars so the deployment picks them up.
         if prep.kind == "python" and env:
             deploy.ensure_project_and_env(token, name, env, team_id)
-        # Best-effort: make sure the public URL isn't behind Vercel's login wall.
-        deploy.disable_protection(token, name, team_id)
         result = deploy.create_deployment(
             token, name, prep.files, production=production, team_id=team_id
         )
+        # Project now exists — turn off Vercel's login wall (Deployment Protection)
+        # so the public URL opens for anyone. Best-effort; uses the real project id.
+        deploy.disable_protection(token, result.get("vercel_project_id") or name, team_id)
     except deploy.VercelError as e:
         return _err(e.message, e.status or 502)
 

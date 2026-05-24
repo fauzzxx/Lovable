@@ -11,261 +11,209 @@
   body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
     font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
     background:radial-gradient(1200px 600px at 50% -10%, #15281f 0%, var(--bg) 55%);color:var(--ink);padding:20px}
-  .phone{width:390px;max-width:100%;height:780px;max-height:94vh;background:var(--phone);
+  .phone{width:390px;max-width:100%;height:790px;max-height:95vh;background:var(--phone);
     border:1px solid var(--line);border-radius:42px;box-shadow:0 40px 120px -40px rgba(0,0,0,.8),0 0 0 10px #0a0b0e;
     display:flex;flex-direction:column;overflow:hidden;position:relative}
   .notch{height:30px;display:flex;align-items:center;justify-content:center}
   .notch .pill{width:120px;height:7px;border-radius:7px;background:#000}
   .statusbar{display:flex;justify-content:space-between;padding:2px 24px 6px;font-size:12px;color:var(--muted)}
   .screen{flex:1;display:flex;flex-direction:column;padding:8px 18px 0;overflow:hidden}
-  /* idle */
   #idleView{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:6px}
   .avatar{width:104px;height:104px;border-radius:50%;background:linear-gradient(160deg,#2f6b53,#46b88c);
     display:flex;align-items:center;justify-content:center;font-family:Georgia,serif;font-size:46px;color:#0e241b;font-weight:600;
     box-shadow:0 14px 40px -12px rgba(70,184,140,.7);margin-bottom:10px}
   .avatar.ring{animation:ring 1.4s ease-in-out infinite}
   @keyframes ring{0%,100%{box-shadow:0 0 0 0 rgba(70,184,140,.5)}50%{box-shadow:0 0 0 18px rgba(70,184,140,0)}}
-  .who{font-size:26px;font-weight:600}
-  .sub{color:var(--muted);font-size:14px}
-  .hint{color:var(--dim);font-size:13px;margin-top:14px;max-width:240px;line-height:1.5}
-  /* in-call */
+  .who{font-size:26px;font-weight:600}.sub{color:var(--muted);font-size:14px}
+  .hint{color:var(--dim);font-size:13px;margin-top:14px;max-width:250px;line-height:1.5}
   #callView{flex:1;display:none;flex-direction:column;min-height:0}
   .calltop{display:flex;flex-direction:column;align-items:center;gap:4px;padding:6px 0 12px;border-bottom:1px solid var(--line)}
-  .calltop .avatar{width:64px;height:64px;font-size:28px;margin:0 0 4px}
+  .calltop .avatar{width:60px;height:60px;font-size:26px;margin:0 0 4px}
   .calltop .who{font-size:18px}
-  .callstatus{color:var(--accent2);font-size:13px;font-variant-numeric:tabular-nums}
+  .callstatus{color:var(--accent2);font-size:13px;font-variant-numeric:tabular-nums;min-height:17px}
   .log{flex:1;overflow-y:auto;padding:14px 2px;display:flex;flex-direction:column;gap:9px}
   .msg{max-width:84%;padding:9px 13px;border-radius:14px;font-size:14px;line-height:1.45}
   .msg.user{align-self:flex-end;background:var(--user)}
   .msg.ai{align-self:flex-start;background:#272a33;border:1px solid var(--line)}
-  .caption{align-self:flex-end;color:var(--muted);font-size:13px;font-style:italic;min-height:18px;padding:0 4px}
-  .result{align-self:stretch;background:#1f2128;border:1px solid var(--accent);border-radius:14px;padding:14px 16px;
-    box-shadow:0 0 0 1px rgba(70,184,140,.15)}
-  .result h3{margin:0 0 4px;font-size:15px}
-  .result .nm{color:var(--accent2)}
-  .result a.link{display:block;text-align:center;background:var(--accent);color:#0e241b;text-decoration:none;
-    font-weight:600;padding:11px;border-radius:10px;font-size:14px;margin-top:10px}
+  .result{align-self:stretch;background:#1f2128;border:1px solid var(--accent);border-radius:14px;padding:14px 16px;box-shadow:0 0 0 1px rgba(70,184,140,.15)}
+  .result h3{margin:0 0 4px;font-size:15px}.result .nm{color:var(--accent2)}
+  .result a.link{display:block;text-align:center;background:var(--accent);color:#0e241b;text-decoration:none;font-weight:600;padding:11px;border-radius:10px;font-size:14px;margin-top:10px}
   .result a.alt{background:transparent;color:var(--accent2);border:1px solid var(--line)}
+  .result .wa{margin-top:10px;font-size:13px;color:#bdf0d0;display:flex;align-items:center;gap:7px}
   .result .err{color:var(--red);font-size:12.5px;margin-top:8px}
   .result .building{display:flex;align-items:center;gap:9px;color:var(--muted);font-size:13.5px}
   .spin{width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;display:inline-block;animation:rot .8s linear infinite}
   @keyframes rot{to{transform:rotate(360deg)}}
-  /* controls */
-  .controls{padding:18px 24px 30px;display:flex;align-items:center;justify-content:center;gap:40px}
-  .cbtn{width:70px;height:70px;border-radius:50%;border:0;display:flex;align-items:center;justify-content:center;
-    cursor:pointer;font-size:30px;transition:transform .08s, background .15s}
+  .controls{padding:16px 24px 26px;display:flex;align-items:center;justify-content:center;gap:34px}
+  .cbtn{width:68px;height:68px;border-radius:50%;border:0;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:27px;transition:transform .08s, background .15s}
   .cbtn:active{transform:scale(.95)}
   .cbtn.call{background:var(--accent);color:#0e241b;box-shadow:0 12px 36px -10px rgba(70,184,140,.7)}
   .cbtn.call:hover{background:var(--accent2)}
+  .cbtn.mic{background:#2b2f3a;color:var(--ink);border:1px solid var(--line)}
+  .cbtn.mic.rec{background:var(--red);color:#2a0f0d;animation:ring 1.2s infinite}
+  .cbtn.mic:disabled{opacity:.45;cursor:default}
   .cbtn.end{background:var(--red);color:#2a0f0d;display:none}
-  .ctrl-label{position:absolute;bottom:12px;width:100%;text-align:center;left:0;color:var(--dim);font-size:12px}
-  .banner{margin:0 18px;padding:10px 12px;border-radius:10px;background:rgba(224,114,107,.14);
-    border:1px solid rgba(224,114,107,.4);color:#f1b7b3;font-size:12.5px;display:none}
+  .micwrap{display:flex;flex-direction:column;align-items:center;gap:6px}
+  .micwrap small{color:var(--dim);font-size:11px;min-height:13px}
+  .banner{margin:0 18px 8px;padding:10px 12px;border-radius:10px;background:rgba(224,114,107,.14);border:1px solid rgba(224,114,107,.4);color:#f1b7b3;font-size:12.5px;display:none}
 </style>
 </head>
 <body>
   <div class="phone">
     <div class="notch"><div class="pill"></div></div>
     <div class="statusbar"><span id="clock">9:41</span><span>Weaver · LTE</span></div>
-
     <div class="screen">
       <div id="idleView">
-        <div class="avatar" id="idleAvatar">W</div>
+        <div class="avatar">W</div>
         <div class="who">Weaver</div>
         <div class="sub">AI Website Builder</div>
-        <div class="hint">Tap the green button and tell me what website to build. I'll build it and put the live link right here.</div>
+        <div class="hint">Tap the green button, then tap the mic to talk. I'll build your site, show the link here, and WhatsApp it to you.</div>
       </div>
-
       <div id="callView">
         <div class="calltop">
-          <div class="avatar small" id="callAvatar">W</div>
+          <div class="avatar" id="callAvatar">W</div>
           <div class="who">Weaver</div>
           <div class="callstatus" id="callStatus">Calling…</div>
         </div>
         <div class="log" id="log"></div>
-        <div class="caption" id="caption"></div>
       </div>
     </div>
-
     <div class="banner" id="banner"></div>
-
     <div class="controls">
       <button class="cbtn call" id="callBtn" title="Call">📞</button>
+      <div class="micwrap" id="micWrap" style="display:none">
+        <button class="cbtn mic" id="micBtn" title="Tap to talk">🎤</button>
+        <small id="micLabel">Tap to talk</small>
+      </div>
       <button class="cbtn end" id="endBtn" title="End call">✕</button>
     </div>
   </div>
 
 <script>
 const $ = (id) => document.getElementById(id);
-const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let callActive=false, busy=false, speaking=false, recording=false;
+let stream=null, rec=null, chunks=[], history=[], timer=null, seconds=0, buildCard=null;
 
-let recog = null, callActive = false, speaking = false, busy = false;
-let pendingFinal = '', history = [], timer = null, seconds = 0, buildCard = null;
-
-// clock
-function tickClock(){ const d=new Date(); $('clock').textContent = d.toLocaleTimeString([], {hour:'numeric', minute:'2-digit'}); }
+function tickClock(){ $('clock').textContent=new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}); }
 tickClock(); setInterval(tickClock, 10000);
 
-// health / browser support
-(async () => {
-  if (!SR) {
-    showBanner("This browser can't do voice. Please open this page in Google Chrome or Microsoft Edge.");
-    $('callBtn').disabled = true; $('callBtn').style.opacity = .5;
-    return;
-  }
-  try {
-    const h = await (await fetch('/health')).json();
-    if (!h.gemini) showBanner("GEMINI_API_KEY isn't set on the server — the call can't think without it.");
-    else if (!h.anthropic) showBanner("Heads up: no Anthropic key saved, so the build step will fail. Add it in the Weaver builder's Settings.");
-  } catch(e){}
+(async ()=>{
+  try{
+    const h=await (await fetch('/health')).json();
+    if(!h.deepgram) showBanner("DEEPGRAM_API_KEY isn't set — listening & voice need it.");
+    else if(!h.gemini) showBanner("GEMINI_API_KEY isn't set — the call can't think without it.");
+    else if(!h.anthropic) showBanner("No Anthropic key saved — the build step will fail. Add it in the builder's Settings.");
+    else if(!h.whatsapp) showBanner("WhatsApp isn't configured (TWILIO + WHATSAPP_TO in .env) — the link will still show on screen.");
+  }catch(e){}
 })();
+function showBanner(t){ const b=$('banner'); b.textContent=t; b.style.display='block'; }
+function setStatus(t){ $('callStatus').textContent=t; }
+function micLabel(t){ $('micLabel').textContent=t; }
+function addMsg(role,text){ const d=document.createElement('div'); d.className='msg '+role; d.textContent=text; $('log').appendChild(d); $('log').scrollTop=$('log').scrollHeight; return d; }
 
-function showBanner(text){ const b=$('banner'); b.textContent=text; b.style.display='block'; }
+$('callBtn').onclick=startCall;
+$('endBtn').onclick=endCall;
+$('micBtn').onclick=()=>{ if(busy||speaking) return; recording?stopRec():startRec(); };
 
-function setStatus(t){ $('callStatus').textContent = t; }
-function addMsg(role, text){
-  const d=document.createElement('div'); d.className='msg '+role; d.textContent=text;
-  $('log').appendChild(d); $('log').scrollTop = $('log').scrollHeight; return d;
-}
-function setCaption(t){ $('caption').textContent = t || ''; }
-
-// ---- call lifecycle ----
-$('callBtn').onclick = startCall;
-$('endBtn').onclick  = endCall;
-
-function startCall(){
-  if (!SR) return;
-  callActive = true; seconds = 0; history = []; pendingFinal=''; buildCard=null;
-  $('idleView').style.display = 'none';
-  $('callView').style.display = 'flex';
-  $('callBtn').style.display = 'none';
-  $('endBtn').style.display = 'flex';
-  $('callAvatar').classList.add('ring');
-  $('log').innerHTML = ''; setCaption('');
-  setStatus('Connecting…');
-
-  recog = new SR();
-  recog.lang = 'en-US'; recog.interimResults = true; recog.continuous = false; recog.maxAlternatives = 1;
-  recog.onresult = onResult;
-  recog.onend = onRecogEnd;
-  recog.onerror = onRecogError;
-
-  // greet, then listen (the tap is the gesture that unlocks speech)
+async function startCall(){
+  try{ stream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:1,echoCancellation:true,noiseSuppression:true,autoGainControl:true}}); }
+  catch(e){ showBanner('Microphone blocked — allow it in the address bar, then call again.'); return; }
+  callActive=true; seconds=0; history=[]; buildCard=null;
+  $('idleView').style.display='none'; $('callView').style.display='flex';
+  $('callBtn').style.display='none'; $('endBtn').style.display='flex'; $('micWrap').style.display='flex';
+  $('callAvatar').classList.add('ring'); $('log').innerHTML='';
   startTimer();
-  greet();
+  const GREETING="Hi! I'm Weaver. What kind of website would you like me to build for you today?";
+  addMsg('ai',GREETING); await playTTS(GREETING);
+  if(callActive){ setStatus('Your turn — tap the mic'); micLabel('Tap to talk'); }
 }
 
 function endCall(){
-  callActive = false;
-  try { recog && recog.abort(); } catch(e){}
-  try { window.speechSynthesis.cancel(); } catch(e){}
-  stopTimer();
+  callActive=false; recording=false;
+  try{ rec&&rec.state!=='inactive'&&rec.stop(); }catch(e){}
+  try{ stream&&stream.getTracks().forEach(t=>t.stop()); }catch(e){}
+  stream=null; stopTimer();
   $('callAvatar').classList.remove('ring');
-  $('callView').style.display = 'none';
-  $('idleView').style.display = 'flex';
-  $('endBtn').style.display = 'none';
-  $('callBtn').style.display = 'flex';
+  $('callView').style.display='none'; $('idleView').style.display='flex';
+  $('endBtn').style.display='none'; $('micWrap').style.display='none'; $('callBtn').style.display='flex';
 }
 
-function startTimer(){ stopTimer(); timer = setInterval(()=>{ seconds++; const m=String(Math.floor(seconds/60)).padStart(2,'0'); const s=String(seconds%60).padStart(2,'0'); if(!speaking && !busy) setStatus(`Connected · ${m}:${s}`); }, 1000); }
+function startTimer(){ stopTimer(); timer=setInterval(()=>{ seconds++; if(!speaking&&!busy&&!recording){ const m=String(Math.floor(seconds/60)).padStart(2,'0'),s=String(seconds%60).padStart(2,'0'); setStatus(`Connected · ${m}:${s}`);} },1000); }
 function stopTimer(){ if(timer){ clearInterval(timer); timer=null; } }
 
-async function greet(){
-  const GREETING = "Hi! I'm Weaver. What kind of website would you like me to build for you today?";
-  addMsg('ai', GREETING);
-  await speak(GREETING);
-  beginListen();
+function startRec(){
+  chunks=[];
+  const mime=MediaRecorder.isTypeSupported('audio/webm;codecs=opus')?'audio/webm;codecs=opus':(MediaRecorder.isTypeSupported('audio/webm')?'audio/webm':'');
+  try{ rec=mime?new MediaRecorder(stream,{mimeType:mime}):new MediaRecorder(stream); }
+  catch(e){ showBanner('Recording not supported in this browser.'); return; }
+  rec.ondataavailable=e=>{ if(e.data&&e.data.size>0) chunks.push(e.data); };
+  rec.onstop=onRecStop;
+  rec.start(); recording=true;
+  $('micBtn').classList.add('rec'); $('micBtn').textContent='■'; micLabel('Tap to send'); setStatus('Listening…');
 }
+function stopRec(){ try{ rec&&rec.state!=='inactive'&&rec.stop(); }catch(e){} recording=false; $('micBtn').classList.remove('rec'); $('micBtn').textContent='🎤'; micLabel('Tap to talk'); }
 
-// ---- speech recognition loop ----
-function beginListen(){
-  if (!callActive || speaking || busy) return;
-  setStatus('Listening…'); setCaption('');
-  try { recog.start(); } catch(e){ /* already started */ }
-}
-
-function onResult(e){
-  let interim = '';
-  for (let i = e.resultIndex; i < e.results.length; i++){
-    const t = e.results[i][0].transcript;
-    if (e.results[i].isFinal) pendingFinal += t + ' ';
-    else interim += t;
-  }
-  setCaption(interim || pendingFinal);
-  if (pendingFinal.trim()){ try { recog.stop(); } catch(e){} }
-}
-
-function onRecogEnd(){
-  if (!callActive) return;
-  const final = pendingFinal.trim();
-  pendingFinal = '';
-  if (final){ handleUser(final); }
-  else if (!speaking && !busy){ beginListen(); }   // heard nothing, keep listening
-}
-
-function onRecogError(e){
-  if (e.error === 'not-allowed' || e.error === 'service-not-allowed'){
-    showBanner('Microphone blocked. Click the 🔒/camera icon in the address bar and allow the mic, then call again.');
-    endCall();
-  }
-  // 'no-speech' / 'aborted' fall through to onend, which restarts listening
+async function onRecStop(){
+  const blob=new Blob(chunks,{type:(rec&&rec.mimeType)||'audio/webm'});
+  if(blob.size<900){ setStatus("Didn't catch that — tap and talk."); return; }
+  busy=true; $('micBtn').disabled=true; setStatus('Transcribing…');
+  try{
+    const r=await fetch('/api/transcribe',{method:'POST',headers:{'Content-Type':blob.type},body:blob});
+    const d=await r.json();
+    if(!r.ok||d.error){ addMsg('ai','⚠ '+(d.error||'Transcription failed')); busy=false; $('micBtn').disabled=false; setStatus('Tap the mic to talk'); return; }
+    const text=(d.transcript||'').trim();
+    if(!text){ busy=false; $('micBtn').disabled=false; setStatus("Didn't catch that — tap and talk again."); return; }
+    await handleUser(text);
+  }catch(e){ addMsg('ai','⚠ '+e.message); }
+  busy=false; $('micBtn').disabled=false;
 }
 
 async function handleUser(text){
-  busy = true; setCaption(''); addMsg('user', text);
-  history.push({ role:'user', text });
-  setStatus('Thinking…');
-  let data = null;
-  try {
-    const r = await fetch('/api/chat', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text, history }) });
-    data = await r.json();
-    if (!r.ok || data.error){ addMsg('ai', '⚠ ' + (data.error || 'Something went wrong.')); busy=false; beginListen(); return; }
-  } catch(e){ addMsg('ai', '⚠ Network error: ' + e.message); busy=false; beginListen(); return; }
-
-  addMsg('ai', data.reply);
-  history.push({ role:'assistant', text: data.reply });
-  await speak(data.reply);
-  busy = false;
-
-  if (data.build_spec){ runBuild(data.build_spec); }
-  else { beginListen(); }
+  addMsg('user',text); history.push({role:'user',text}); setStatus('Thinking…');
+  let data=null;
+  try{
+    const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,history})});
+    data=await r.json();
+    if(!r.ok||data.error){ addMsg('ai','⚠ '+(data.error||'Error')); setStatus('Tap the mic to talk'); return; }
+  }catch(e){ addMsg('ai','⚠ Network error: '+e.message); return; }
+  addMsg('ai',data.reply); history.push({role:'assistant',text:data.reply});
+  await playTTS(data.reply);
+  if(data.build_spec){ await runBuild(data.build_spec); }
+  else { setStatus('Your turn — tap the mic'); }
 }
 
 async function runBuild(spec){
-  busy = true; setStatus('Building…');
-  buildCard = document.createElement('div'); buildCard.className = 'result';
-  buildCard.innerHTML = '<h3>Building your site…</h3><div class="building"><span class="spin"></span>Generating, then deploying. ~30–60s.</div>';
-  $('log').appendChild(buildCard); $('log').scrollTop = $('log').scrollHeight;
-  try {
-    const r = await fetch('/api/build', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ spec }) });
-    const d = await r.json();
-    if (!r.ok || d.error){ buildCard.innerHTML = '<h3>Build failed</h3><div class="err">'+escapeHtml(d.error||'Unknown error')+'</div>'; await speak("Sorry, the build didn't work."); busy=false; beginListen(); return; }
-    let html = '<h3>✅ Live — <span class="nm">'+escapeHtml(d.name||'site')+'</span></h3>';
-    if (d.vercel_url) html += '<a class="link" href="'+d.vercel_url+'" target="_blank">Open deployed site ↗</a>';
-    html += '<a class="link alt" href="'+d.local_url+'" target="_blank">Open preview ↗</a>';
-    if (d.deploy_error) html += '<div class="err">'+escapeHtml(d.deploy_error)+'</div>';
-    buildCard.innerHTML = html;
-    $('log').scrollTop = $('log').scrollHeight;
-    await speak("All done! Your site is live — the link is on the screen.");
-    setStatus('Done · link on screen');
-  } catch(e){ buildCard.innerHTML = '<h3>Build failed</h3><div class="err">'+escapeHtml(e.message)+'</div>'; }
-  busy = false;
-  beginListen();
+  setStatus('Building…'); $('micBtn').disabled=true;
+  buildCard=document.createElement('div'); buildCard.className='result';
+  buildCard.innerHTML='<h3>Building your site…</h3><div class="building"><span class="spin"></span>Generating, deploying & sending to WhatsApp. ~30–60s.</div>';
+  $('log').appendChild(buildCard); $('log').scrollTop=$('log').scrollHeight;
+  try{
+    const r=await fetch('/api/build',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({spec})});
+    const d=await r.json();
+    if(!r.ok||d.error){ buildCard.innerHTML='<h3>Build failed</h3><div class="err">'+escapeHtml(d.error||'Unknown error')+'</div>'; await playTTS("Sorry, the build didn't work."); $('micBtn').disabled=false; setStatus('Tap the mic to try again'); return; }
+    let html='<h3>✅ Live — <span class="nm">'+escapeHtml(d.name||'site')+'</span></h3>';
+    if(d.vercel_url) html+='<a class="link" href="'+d.vercel_url+'" target="_blank">Open deployed site ↗</a>';
+    html+='<a class="link alt" href="'+d.local_url+'" target="_blank">Open preview ↗</a>';
+    if(d.whatsapp) html+='<div class="wa">📱 '+escapeHtml(d.whatsapp)+'</div>';
+    if(d.deploy_error) html+='<div class="err">'+escapeHtml(d.deploy_error)+'</div>';
+    buildCard.innerHTML=html; $('log').scrollTop=$('log').scrollHeight;
+    await playTTS("All done! Your site is live. The link is on the screen, and I've sent it to your WhatsApp.");
+    setStatus('Done · link on screen & WhatsApp');
+  }catch(e){ buildCard.innerHTML='<h3>Build failed</h3><div class="err">'+escapeHtml(e.message)+'</div>'; }
+  $('micBtn').disabled=false;
 }
 
-// ---- text to speech (browser) ----
-function speak(text){
-  return new Promise((resolve)=>{
-    if (!('speechSynthesis' in window)){ resolve(); return; }
-    speaking = true; setStatus('Speaking…');
-    try { recog && recog.abort(); } catch(e){}
-    const u = new SpeechSynthesisUtterance(text);
-    u.rate = 1.02; u.pitch = 1.0;
-    u.onend = () => { speaking = false; resolve(); };
-    u.onerror = () => { speaking = false; resolve(); };
-    try { window.speechSynthesis.cancel(); window.speechSynthesis.speak(u); }
-    catch(e){ speaking = false; resolve(); }
-  });
+async function playTTS(text){
+  speaking=true; setStatus('Speaking…');
+  try{
+    const r=await fetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
+    if(!r.ok) throw new Error('tts');
+    const blob=new Blob([await r.arrayBuffer()],{type:r.headers.get('content-type')||'audio/mpeg'});
+    const a=new Audio(URL.createObjectURL(blob));
+    await a.play().catch(()=>{});
+    await new Promise(res=>{ a.onended=res; a.onerror=res; setTimeout(res,25000); });
+  }catch(e){ /* ignore – keep the call going */ }
+  speaking=false;
 }
 
 function escapeHtml(s){ return (s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }

@@ -1,28 +1,28 @@
 """
-final_voice.py — Call Weaver in the browser, then get a deployed website.
-==========================================================================
+final_voice.py — Call Weaver, get a deployed website + WhatsApp link.
+=====================================================================
 
-Tap "Call", say what site you want, it asks a couple of quick follow-ups, then
-BUILDS the site (Claude, via llm.py) and DEPLOYS it to Vercel (deploy.py) and
-shows the live link on the call screen.
+Tap "Call", say what site you want (push-to-talk), it asks a couple of quick
+follow-ups, then BUILDS the site (Claude, via llm.py), DEPLOYS it to Vercel
+(deploy.py), shows the live link on the call screen AND texts it to your
+WhatsApp via Twilio.
 
-The LISTENING + SPEAKING happen in the browser using the built-in Web Speech API
-(Chrome/Edge) — no Deepgram, no API key for the mic, no streaming socket. The
-server only runs the conversation brain (Gemini REST), the build (Claude), and
-the deploy (Vercel).
+Voice uses Deepgram (REST, not the streaming socket):
+  • listening  → you record a turn, it's sent to Deepgram's pre-recorded
+                 transcription (/v1/listen).
+  • speaking   → Deepgram Aura voice (/v1/speak).
+Conversation brain = Gemini (REST). Build = Claude. Deploy = Vercel. All reuse
+your saved Weaver settings + .env.
 
 Run:
     pip install fastapi "uvicorn[standard]" httpx python-dotenv
-    # set GEMINI_API_KEY in .env (next to this file) — used for the conversation
-    python final_voice.py            # http://localhost:8060   (use Chrome or Edge)
-
-Keys:
-    GEMINI_API_KEY   the conversation brain during the call
-    (Anthropic key + Vercel token are read from Weaver's saved config so build +
-     deploy reuse what you already set in the builder's Settings.)
+    # .env needs: DEEPGRAM_API_KEY, GEMINI_API_KEY,
+    #             TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_FROM, WHATSAPP_TO
+    python final_voice.py            # http://localhost:8060  (Chrome/Edge, allow mic)
 """
 from __future__ import annotations
 
+import asyncio
 import os
 import re
 from pathlib import Path
@@ -30,24 +30,33 @@ from pathlib import Path
 import httpx
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 
 import deploy
 import llm
 import prompts
 import storage
 
+# Load env FIRST, then read everything from it (self-contained — no other agent).
 try:
     from dotenv import load_dotenv
     load_dotenv(Path(__file__).resolve().parent / ".env")
-    # also reuse the keys already configured for the example voice agent, if present
-    load_dotenv(Path(__file__).resolve().parent / "examples" / "voice" / ".env")
+    # load_dotenv(Path(__file__).resolve().parent / "examples" / "voice" / ".env")
 except Exception:
     pass
 
 BASE_DIR = Path(__file__).resolve().parent
+DEEPGRAM_API_KEY = os.getenv("DEEPGRAM_API_KEY", "")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
+DG_TTS_MODEL = os.getenv("DEEPGRAM_TTS_MODEL", "aura-asteria-en")
+DG_STT_MODEL = os.getenv("DEEPGRAM_STT_MODEL", "nova-2")
+
+# Twilio WhatsApp — final_voice's own config, read straight from .env.
+TWILIO_SID = os.getenv("TWILIO_ACCOUNT_SID", "").strip()
+TWILIO_AUTH = os.getenv("TWILIO_AUTH_TOKEN", "").strip()
+WHATSAPP_FROM = os.getenv("TWILIO_WHATSAPP_FROM", "whatsapp:+14155238886").strip()
+WHATSAPP_TO = os.getenv("WHATSAPP_TO", "").strip()
 
 SYSTEM_PROMPT = (
     "You are Weaver's friendly website-building intake agent on a phone call. "
@@ -61,9 +70,9 @@ SYSTEM_PROMPT = (
 )
 GREETING = "Hi! I'm Weaver. What kind of website would you like me to build for you today?"
 
-storage.init_db()  # share the builder's projects/versions tables
+storage.init_db()
 
-app = FastAPI(title="Weaver Voice → Build → Deploy")
+app = FastAPI(title="Weaver Voice → Build → Deploy → WhatsApp")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 
@@ -79,15 +88,74 @@ async def root():
 async def health():
     cfg = storage.load_config()
     return {
+        "deepgram": bool(DEEPGRAM_API_KEY),
         "gemini": bool(GEMINI_API_KEY),
         "anthropic": bool(cfg.get("anthropic_api_key")),
         "vercel": bool(cfg.get("vercel_token")),
-        "greeting": GREETING,
+        "whatsapp": bool(TWILIO_SID and TWILIO_AUTH and WHATSAPP_TO),
+        "whatsapp_to": WHATSAPP_TO,
     }
 
 
 # ---------------------------------------------------------------------------
-# Conversation (Gemini REST) + BUILD detection
+# Listening — Deepgram pre-recorded transcription (REST)
+# ---------------------------------------------------------------------------
+@app.post("/api/transcribe")
+async def transcribe(request: Request):
+    if not DEEPGRAM_API_KEY:
+        return JSONResponse({"error": "DEEPGRAM_API_KEY is not set."}, 500)
+    audio = await request.body()
+    if not audio:
+        return {"transcript": ""}
+    ctype = request.headers.get("content-type") or "audio/webm"
+    url = f"https://api.deepgram.com/v1/listen?model={DG_STT_MODEL}&smart_format=true&punctuate=true"
+    try:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            r = await client.post(
+                url,
+                headers={"Authorization": f"Token {DEEPGRAM_API_KEY}", "Content-Type": ctype},
+                content=audio,
+            )
+    except httpx.HTTPError as e:
+        return JSONResponse({"error": f"Network error: {e}"}, 502)
+    if r.status_code != 200:
+        return JSONResponse({"error": f"Deepgram {r.status_code}: {r.text[:200]}"}, 502)
+    d = r.json()
+    try:
+        t = d["results"]["channels"][0]["alternatives"][0]["transcript"]
+    except Exception:
+        t = ""
+    return {"transcript": (t or "").strip()}
+
+
+# ---------------------------------------------------------------------------
+# Speaking — Deepgram Aura (REST)
+# ---------------------------------------------------------------------------
+@app.post("/api/tts")
+async def tts(request: Request):
+    body = await request.json()
+    text = (body.get("text") or "").strip()
+    if not DEEPGRAM_API_KEY:
+        return JSONResponse({"error": "DEEPGRAM_API_KEY is not set."}, 500)
+    if not text:
+        return JSONResponse({"error": "No text."}, 400)
+    url = f"https://api.deepgram.com/v1/speak?model={DG_TTS_MODEL}"
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            r = await client.post(
+                url,
+                headers={"Authorization": f"Token {DEEPGRAM_API_KEY}", "Content-Type": "application/json"},
+                json={"text": text},
+            )
+    except httpx.HTTPError as e:
+        return JSONResponse({"error": f"Network error: {e}"}, 502)
+    if r.status_code != 200:
+        return JSONResponse({"error": f"Deepgram TTS {r.status_code}: {r.text[:200]}"}, 502)
+    return Response(content=r.content, media_type=r.headers.get("content-type", "audio/mpeg"))
+
+
+# ---------------------------------------------------------------------------
+# Conversation — Gemini (REST) + BUILD detection
 # ---------------------------------------------------------------------------
 def split_build(reply: str) -> tuple[str, str | None]:
     if not reply:
@@ -105,10 +173,9 @@ async def chat(request: Request):
     user = (body.get("text") or "").strip()
     history = body.get("history") or []
     if not GEMINI_API_KEY:
-        return JSONResponse({"error": "GEMINI_API_KEY is not set on the server."}, 500)
+        return JSONResponse({"error": "GEMINI_API_KEY is not set."}, 500)
     if not user:
         return JSONResponse({"error": "Say something first."}, 400)
-
     convo = "\n".join(f"{m.get('role', 'user').upper()}: {m.get('text', '')}" for m in history[-10:])
     prompt = (convo + "\n" if convo else "") + f"USER: {user}\nASSISTANT:"
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
@@ -161,9 +228,7 @@ def build_and_deploy(spec: str) -> dict:
 
     user_prompt = prompts.build_generate_user_prompt(spec, False)
     result = llm.generate_text(
-        api_key=api_key,
-        model=model,
-        prompt=user_prompt,
+        api_key=api_key, model=model, prompt=user_prompt,
         system_instruction=prompts.SYSTEM_GENERATE,
         temperature=float(cfg.get("temperature", 0.6)),
         max_output_tokens=int(cfg.get("max_output_tokens", 16000)),
@@ -174,10 +239,7 @@ def build_and_deploy(spec: str) -> dict:
     name = _name_from_spec(spec)
     project = storage.create_project(name, spec, files, notes, result.model)
     pid = project["id"]
-    out = {
-        "project_id": pid, "name": name,
-        "local_url": f"/site/{pid}/", "vercel_url": None, "deploy_error": None,
-    }
+    out = {"project_id": pid, "name": name, "local_url": f"/site/{pid}/", "vercel_url": None, "deploy_error": None}
 
     token = cfg.get("vercel_token", "") or ""
     team_id = cfg.get("vercel_team_id", "") or None
@@ -189,6 +251,7 @@ def build_and_deploy(spec: str) -> dict:
             if prep.kind == "python" and env:
                 deploy.ensure_project_and_env(token, dname, env, team_id)
             dep = deploy.create_deployment(token, dname, prep.files, production=True, team_id=team_id)
+            deploy.disable_protection(token, dep.get("vercel_project_id") or dname, team_id)
             out["vercel_url"] = dep.get("url")
         except Exception as e:  # noqa: BLE001
             out["deploy_error"] = f"{type(e).__name__}: {e}"
@@ -197,19 +260,43 @@ def build_and_deploy(spec: str) -> dict:
     return out
 
 
+def send_whatsapp_link(name: str, url: str | None) -> str:
+    """Text the live link to WHATSAPP_TO via Twilio's REST API (no twilio package)."""
+    if not url:
+        return "Skipped WhatsApp — no public Vercel URL yet (add a Vercel token to deploy)."
+    if not (TWILIO_SID and TWILIO_AUTH and WHATSAPP_TO):
+        return "WhatsApp not configured — set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and WHATSAPP_TO in .env."
+    to = WHATSAPP_TO if WHATSAPP_TO.startswith("whatsapp:") else f"whatsapp:{WHATSAPP_TO}"
+    frm = WHATSAPP_FROM if WHATSAPP_FROM.startswith("whatsapp:") else f"whatsapp:{WHATSAPP_FROM}"
+    body = f"✅ Your website is live!\n\n“{name}”\n{url}\n\nBuilt from your Weaver call."
+    try:
+        r = httpx.post(
+            f"https://api.twilio.com/2010-04-01/Accounts/{TWILIO_SID}/Messages.json",
+            auth=(TWILIO_SID, TWILIO_AUTH),
+            data={"From": frm, "To": to, "Body": body},
+            timeout=30.0,
+        )
+        if r.status_code in (200, 201):
+            return f"Link sent to {WHATSAPP_TO} on WhatsApp."
+        return f"WhatsApp failed (Twilio {r.status_code}): {r.json().get('message', r.text[:160])}"
+    except Exception as e:  # noqa: BLE001
+        return f"WhatsApp failed: {e}"
+
+
 @app.post("/api/build")
 async def build(request: Request):
-    import asyncio
     body = await request.json()
     spec = (body.get("spec") or "").strip()
     if not spec:
         return JSONResponse({"error": "Missing build spec."}, 400)
     try:
-        return await asyncio.to_thread(build_and_deploy, spec)
+        result = await asyncio.to_thread(build_and_deploy, spec)
     except llm.LLMError as e:
         return JSONResponse({"error": e.message}, 502)
     except Exception as e:  # noqa: BLE001
         return JSONResponse({"error": f"{type(e).__name__}: {e}"}, 500)
+    result["whatsapp"] = await asyncio.to_thread(send_whatsapp_link, result["name"], result.get("vercel_url"))
+    return result
 
 
 # ---------------------------------------------------------------------------
