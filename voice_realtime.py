@@ -213,8 +213,8 @@ class Session:
     # ---------- Gemini conversation ----------
     async def _gemini_reply(self) -> str:
         cfg = storage.load_config()
-        key = cfg.get("gemini_api_key", "")
-        model = cfg.get("model") or "gemini-2.5-flash"
+        key = cfg.get("anthropic_api_key", "")
+        model = cfg.get("anthropic_model") or "claude-sonnet-4-6"
         convo = "\n".join(f"{r}: {c}" for r, c in self.history[-10:])
         prompt = (
             f"Conversation so far:\n{convo}\n\n"
@@ -229,7 +229,7 @@ class Session:
             )
             return (res.text or "").replace("*", "").replace("#", "").strip()
         except Exception as e:  # noqa: BLE001
-            print(f"⚠️ Gemini convo error: {e}")
+            print(f"⚠️ Claude convo error: {e}")
             return "Sorry, could you tell me a bit more about the website you'd like?"
 
     def _summary_spec(self) -> str:
@@ -424,7 +424,7 @@ async def home():
 <h1>🎙️ Full-duplex voice → website builder</h1>
 <p>Call your Twilio number, have a quick chat, get the live link on WhatsApp.</p>
 <div>
-{chip(bool(cfg.get('gemini_api_key')), 'Gemini')}
+{chip(bool(cfg.get('anthropic_api_key')), 'Claude (Anthropic)')}
 {chip(bool(cfg.get('vercel_token')), 'Vercel')}
 {chip(bool(va.TWILIO_SID and va.TWILIO_AUTH), 'Twilio')}
 {chip(bool(DEEPGRAM_API_KEY), 'Deepgram (speech + voice)')}

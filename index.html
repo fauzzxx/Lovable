@@ -649,10 +649,10 @@
           <label>Target</label>
           <div style="display:flex;gap:8px">
             <label style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--ink);text-transform:none;letter-spacing:0">
-              <input type="radio" name="deployTarget" value="preview" checked> Preview <span class="sub" style="margin:0">(unique test URL)</span>
+              <input type="radio" name="deployTarget" value="preview"> Preview <span class="sub" style="margin:0">(unique test URL)</span>
             </label>
             <label style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--ink);text-transform:none;letter-spacing:0">
-              <input type="radio" name="deployTarget" value="production"> Production <span class="sub" style="margin:0">(your-app.vercel.app)</span>
+              <input type="radio" name="deployTarget" value="production" checked> Production <span class="sub" style="margin:0">(your-app.vercel.app)</span>
             </label>
           </div>
         </div>
@@ -1210,7 +1210,8 @@ function renderDeployState(d){
   const c=stateColors[d.state]||['#2a210f','#5a4718','#ffe2a8'];
   let inner='';
   if(d.state==='READY'){
-    inner=`✅ Live at <a href="${url}" target="_blank" style="color:#bdf0d0;font-weight:600">${url}</a>`;
+    inner=`✅ Live at <a href="${url}" target="_blank" style="color:#bdf0d0;font-weight:600">${url}</a>`
+      +`<br><span class="sub" style="margin:6px 0 0">If that link shows a Vercel login page, open your Vercel project → Settings → Deployment Protection and turn it off.</span>`;
   }else if(d.state==='ERROR'){
     inner=`❌ Build failed.${d.error?(' '+escapeHtml(d.error)):''} `+(d.inspector?`<a href="${d.inspector}" target="_blank" style="color:#ffb4b4">View logs ↗</a>`:'');
   }else{

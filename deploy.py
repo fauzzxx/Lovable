@@ -259,6 +259,32 @@ def ensure_project_and_env(
             )  # best-effort; don't fail the whole deploy on one env var
 
 
+def _pick_url(data: dict) -> str | None:
+    """Prefer the clean production alias (e.g. myapp.vercel.app) over the long
+    per-deployment hash URL — the alias is the stable, expected public link."""
+    aliases = [a for a in (data.get("alias") or []) if isinstance(a, str) and a]
+    if aliases:
+        return "https://" + sorted(aliases, key=len)[0]
+    if data.get("url"):
+        return "https://" + data["url"]
+    return None
+
+
+def disable_protection(token: str, name: str, team_id: str | None = None) -> None:
+    """Best-effort: turn OFF Vercel Deployment Protection so the public URL works
+    without a login wall. Silently ignores accounts/plans where this doesn't apply."""
+    try:
+        with httpx.Client(timeout=30.0) as client:
+            client.patch(
+                f"{VERCEL_API}/v9/projects/{name}",
+                params=_team_q(team_id),
+                headers=_headers(token),
+                json={"ssoProtection": None, "passwordProtection": None},
+            )
+    except Exception:
+        pass
+
+
 def create_deployment(
     token: str,
     name: str,
@@ -294,7 +320,7 @@ def create_deployment(
     data = r.json()
     return {
         "id": data.get("id"),
-        "url": ("https://" + data["url"]) if data.get("url") else None,
+        "url": _pick_url(data),
         "state": data.get("readyState") or data.get("status") or "QUEUED",
         "inspector": data.get("inspectorUrl"),
     }
@@ -311,7 +337,7 @@ def get_deployment(token: str, dep_id: str, team_id: str | None = None) -> dict:
     data = r.json()
     return {
         "id": data.get("id") or dep_id,
-        "url": ("https://" + data["url"]) if data.get("url") else None,
+        "url": _pick_url(data),
         "state": data.get("readyState") or data.get("status") or "QUEUED",
         "inspector": data.get("inspectorUrl"),
         "error": (data.get("error") or {}).get("message")
